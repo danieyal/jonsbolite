@@ -33,13 +33,15 @@ public sealed class Config
     [JsonIgnore]
     public string? SourcePath { get; set; }
 
-    private static readonly JsonSerializerOptions Options = new()
+    // Source-generated metadata rather than reflection, so the core stays trim- and
+    // AOT-safe. That matters for the small self-contained daemon a Linux port would want.
+    private static readonly ConfigJsonContext Json = new(new JsonSerializerOptions
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
-    };
+    });
 
     public static string DefaultPath =>
         Path.Combine(AppContext.BaseDirectory, "jonsbolite.json");
@@ -50,7 +52,7 @@ public sealed class Config
         if (!File.Exists(path)) return new Config { SourcePath = path };
         try
         {
-            Config c = JsonSerializer.Deserialize<Config>(File.ReadAllText(path), Options) ?? new Config();
+            Config c = JsonSerializer.Deserialize(File.ReadAllText(path), Json.Config) ?? new Config();
             c.SourcePath = path;
             return c;
         }
@@ -66,7 +68,7 @@ public sealed class Config
         path ??= SourcePath ?? DefaultPath;
         try
         {
-            File.WriteAllText(path, JsonSerializer.Serialize(this, Options));
+            File.WriteAllText(path, JsonSerializer.Serialize(this, Json.Config));
         }
         catch (Exception ex)
         {
@@ -74,3 +76,6 @@ public sealed class Config
         }
     }
 }
+
+[JsonSerializable(typeof(Config))]
+internal partial class ConfigJsonContext : JsonSerializerContext;

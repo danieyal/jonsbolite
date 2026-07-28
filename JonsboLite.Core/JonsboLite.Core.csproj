@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Deliberately plain net8.0, with no OS suffix and no platform-specific package
+       references. The panel protocol has nothing Windows-specific in it, and building
+       this project is what keeps that true: anything that reaches for P/Invoke, WinForms
+       or LibreHardwareMonitor will fail here rather than quietly rot the portability. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>JonsboLite</RootNamespace>
+    <AssemblyName>JonsboLite.Core</AssemblyName>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+  </PropertyGroup>
+
+</Project>

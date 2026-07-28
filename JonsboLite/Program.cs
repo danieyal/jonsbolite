@@ -98,10 +98,10 @@ public static class Program
 
     private static void SendLoop(Config config, bool quiet, bool test, ManualResetEventSlim stop, Tray? tray)
     {
-        using var display = new HidDisplay();
-        using Sensors? sensors = test ? null : OpenSensors(config);
+        using IPanelTransport panel = Platform.CreateTransport();
+        using ISensorSource? sensors = test ? null : OpenSensors(config);
 
-        var payload = new byte[HidDisplay.PayloadLength];
+        var payload = new byte[Frame.PayloadLength];
         var status = Stopwatch.StartNew();
         bool wasConnected = false;
         long frames = 0;
@@ -112,23 +112,23 @@ public static class Program
 
         while (!stop.IsSet)
         {
-            if (!display.IsOpen)
+            if (!panel.IsOpen)
             {
-                if (!display.Open())
+                if (!panel.Open())
                 {
                     if (wasConnected) { Console.WriteLine("panel disconnected — waiting"); wasConnected = false; }
                     tray?.UpdateStatus(test ? TestPattern() : new Readings(), connected: false, model: "");
                     stop.Wait(2000);
                     continue;
                 }
-                Console.WriteLine($"connected: {HidDisplay.ModelName(display.ProductId)}  {display.DevicePath}");
+                Console.WriteLine($"connected: {panel.Description}");
                 wasConnected = true;
             }
 
             Readings r = test ? TestPattern() : sensors!.Read();
             Frame.Pack(payload, r, config.Unit, config.DisplayMode, DateTime.Now);
 
-            if (!display.Send(payload))
+            if (!panel.Send(payload))
             {
                 // Send() already closed the handle. Back off so a panel that opens but
                 // rejects every write can't spin this loop at full tilt.
@@ -143,7 +143,7 @@ public static class Program
             if (status.ElapsedMilliseconds >= 1000)
             {
                 status.Restart();
-                tray?.UpdateStatus(r, connected: true, model: HidDisplay.ModelName(display.ProductId));
+                tray?.UpdateStatus(r, connected: true, model: Platform.ModelOf(panel));
                 if (!quiet)
                 {
                     // Overwrite in place on a real console; append lines when piped to a file.
@@ -159,11 +159,11 @@ public static class Program
         Console.WriteLine($"stopped after {frames} frames");
     }
 
-    private static Sensors? OpenSensors(Config config)
+    private static ISensorSource? OpenSensors(Config config)
     {
         try
         {
-            return new Sensors(config);
+            return Platform.CreateSensorSource(config);
         }
         catch (Exception ex)
         {
@@ -184,15 +184,15 @@ public static class Program
     private static int ListSensors(Config config)
     {
         WarnIfNotElevated();
-        using var sensors = new Sensors(config);
+        using ISensorSource sensors = Platform.CreateSensorSource(config);
         sensors.Read(); // populate values
 
-        foreach (IGrouping<IHardware, ISensor> group in sensors.AllSensors().GroupBy(s => s.Hardware))
+        foreach (IGrouping<string, SensorReading> group in sensors.Enumerate().GroupBy(s => s.Hardware))
         {
             Console.WriteLine();
-            Console.WriteLine($"{group.Key.Name}  [{group.Key.HardwareType}]");
-            foreach (ISensor s in group.OrderBy(s => s.SensorType).ThenBy(s => s.Name))
-                Console.WriteLine($"   {s.SensorType,-12} {s.Name,-42} {s.Value,10:F2}");
+            Console.WriteLine(group.Key);
+            foreach (SensorReading s in group.OrderBy(s => s.Kind).ThenBy(s => s.Name))
+                Console.WriteLine($"   {s.Kind,-12} {s.Name,-42} {s.Value,10:F2}");
         }
         Console.WriteLine();
         Console.WriteLine("Pin any of these in jonsbolite.json, e.g.  \"sensors\": { \"pumpRpm\": \"Fan #3\" }");
@@ -202,21 +202,12 @@ public static class Program
     private static int ShowBinding(Config config)
     {
         WarnIfNotElevated();
-        using var sensors = new Sensors(config);
+        using ISensorSource sensors = Platform.CreateSensorSource(config);
         Readings r = sensors.Read();
 
-        var values = new Dictionary<string, double>
-        {
-            ["cpuTemp"] = r.CpuTemp, ["cpuLoad"] = r.CpuLoad, ["cpuPower"] = r.CpuPower,
-            ["cpuClock"] = r.CpuClock, ["cpuVid"] = r.CpuVid,
-            ["gpuTemp"] = r.GpuTemp, ["gpuLoad"] = r.GpuLoad, ["gpuPower"] = r.GpuPower,
-            ["gpuClock"] = r.GpuClock,
-            ["fanRpm"] = r.FanRpm, ["pumpRpm"] = r.PumpRpm, ["memLoad"] = r.MemLoad,
-        };
-
         Console.WriteLine($"{"panel field",-12} {"value",10}   sensor");
-        foreach (string f in Sensors.Fields)
-            Console.WriteLine($"{f,-12} {values[f],10:F2}   {sensors.BoundSensorName(f)}");
+        foreach (PanelField f in PanelFields.All)
+            Console.WriteLine($"{f.ConfigKey(),-12} {r[f],10:F2}   {sensors.BoundSensorName(f) ?? "(none)"}");
         return 0;
     }
 
