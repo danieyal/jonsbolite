@@ -1,0 +1,30 @@
+# ---------------------------------------------------------------------------
+# Vendor application
+# ---------------------------------------------------------------------------
+# 293 MB of third-party proprietary binaries, kept on disk purely as the
+# reference the protocol was derived from. Not ours to redistribute, and not
+# something a source repo should carry. Provenance (version + SHA-256 of the
+# key artifacts) is tracked instead, in:
+#   reverse-engineering/original-app-manifest.md
+/original-app/
+
+# ---------------------------------------------------------------------------
+# .NET build output
+# ---------------------------------------------------------------------------
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+
+# Runtime config, written by the app and by the tray menu
+jonsbolite.json
+
+# ---------------------------------------------------------------------------
+# Editors / OS
+# ---------------------------------------------------------------------------
+.vs/
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+desktop.ini
