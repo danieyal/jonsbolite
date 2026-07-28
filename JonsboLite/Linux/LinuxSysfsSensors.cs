@@ -274,16 +274,29 @@ public sealed class LinuxSysfsSensors : ISensorSource
 
     public void Dispose() { }
 
-    /// <summary>Cumulative microjoules to average watts over the interval between calls.</summary>
-    private sealed class EnergyMeter(string path, double rangeUj)
+    /// <summary>
+    /// Cumulative microjoules to average watts over the interval between calls.
+    /// Primes its baseline at construction so the first Read of the app's life reports a
+    /// real figure rather than zero.
+    /// </summary>
+    private sealed class EnergyMeter
     {
+        private readonly string _path;
+        private readonly double _rangeUj;
         private double _lastEnergy = double.NaN;
         private long _lastTicks;
         private double _watts;
 
+        public EnergyMeter(string path, double rangeUj)
+        {
+            _path = path;
+            _rangeUj = rangeUj;
+            Watts();   // establish the baseline; discovery gives it time before the first real read
+        }
+
         public double? Watts()
         {
-            double? now = Number(path);
+            double? now = Number(_path);
             if (now is null) return null;
             long ticks = Environment.TickCount64;
 
@@ -291,7 +304,7 @@ public sealed class LinuxSysfsSensors : ISensorSource
             {
                 double dEnergy = now.Value - _lastEnergy;
                 // The counter wraps at max_energy_range_uj rather than saturating.
-                if (dEnergy < 0) dEnergy += rangeUj > 0 ? rangeUj : 0;
+                if (dEnergy < 0) dEnergy += _rangeUj > 0 ? _rangeUj : 0;
                 double seconds = (ticks - _lastTicks) / 1000.0;
                 if (seconds > 0 && dEnergy >= 0) _watts = dEnergy / 1e6 / seconds;
             }
@@ -302,11 +315,16 @@ public sealed class LinuxSysfsSensors : ISensorSource
         }
     }
 
-    /// <summary>CPU utilisation from /proc/stat, as a percentage of the interval between calls.</summary>
+    /// <summary>
+    /// CPU utilisation from /proc/stat, as a percentage of the interval between calls.
+    /// Primes its baseline at construction, so the first Read reports a real figure.
+    /// </summary>
     private sealed class ProcStatLoad
     {
         private double _lastIdle, _lastTotal;
         private double _percent;
+
+        public ProcStatLoad() => Percent();
 
         public double? Percent()
         {

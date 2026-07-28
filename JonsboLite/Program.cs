@@ -190,11 +190,23 @@ public static class Program
         FanRpm = 1200, PumpRpm = 850, MemLoad = 61,
     };
 
+    /// <summary>
+    /// Samples twice with a gap. Rate-derived sensors — /proc/stat utilisation, RAPL
+    /// energy — are meaningless until there are two readings to subtract, so a single
+    /// sample reports zero and makes a working sensor look broken.
+    /// </summary>
+    private static Readings SampleTwice(ISensorSource sensors)
+    {
+        sensors.Read();
+        Thread.Sleep(250);
+        return sensors.Read();
+    }
+
     private static int ListSensors(Config config)
     {
         WarnAboutPrivileges();
         using ISensorSource sensors = Platform.CreateSensorSource(config);
-        sensors.Read(); // populate values
+        SampleTwice(sensors);
 
         foreach (IGrouping<string, SensorReading> group in sensors.Enumerate().GroupBy(s => s.Hardware))
         {
@@ -212,7 +224,7 @@ public static class Program
     {
         WarnAboutPrivileges();
         using ISensorSource sensors = Platform.CreateSensorSource(config);
-        Readings r = sensors.Read();
+        Readings r = SampleTwice(sensors);
 
         Console.WriteLine($"{"panel field",-12} {"value",10}   sensor");
         foreach (PanelField f in PanelFields.All)
