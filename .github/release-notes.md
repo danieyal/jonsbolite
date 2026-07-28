@@ -1,3 +1,8 @@
+> [!WARNING]
+> Vibe coded — largely AI-written, with human review, and verified on a single panel
+> (Jonsbo TH240 ARGB AIO) on a single machine. It writes to a USB HID device and, on
+> Windows, loads a kernel driver to read sensors. Use at your own risk; no warranty.
+
 ## Install
 
 **Windows** — run the `.msi`, or unzip the portable build anywhere. Needs the

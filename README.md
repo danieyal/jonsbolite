@@ -2,6 +2,32 @@
 
 [![CI](https://github.com/danieyal/jonsbolite/actions/workflows/ci.yml/badge.svg)](https://github.com/danieyal/jonsbolite/actions/workflows/ci.yml)
 
+> [!WARNING]
+> **This project is vibe coded — written largely by an AI assistant, with human review.
+> Use it at your own risk.**
+>
+> It talks directly to hardware: it opens a USB HID device and writes to it several times
+> a second, and on Windows it loads a kernel driver to read sensors. That is what the
+> vendor software does too, and nothing here writes firmware, touches flash, or sends any
+> command the stock application does not — but it has been verified on exactly one panel
+> on one machine.
+>
+> The protocol findings in [`reverse-engineering/`](reverse-engineering/) are the solid
+> part: they were confirmed against real hardware, not inferred. The Linux support in
+> particular has never run against a physical panel at all. There is no warranty, express
+> or implied — see [LICENSE](LICENSE).
+
+## Tested on
+
+| Device | Panel | OS | Status |
+|---|---|---|---|
+| Jonsbo TH240 ARGB AIO | `5131:2007` reference | Windows 11 | Working |
+
+Only one device so far, and only one of the three known panel variants. If you have
+other hardware — a different Jonsbo case, an Ocypus (`5131:2009`) or Ruituo (`5131:200a`)
+panel, or any of this on Linux — testing it and adding a row here would be genuinely
+useful. `jonsbolite --show-binding` reports what it detected.
+
 The stock JONSBO PC Monitor app is a 293 MB Electron bundle plus a second .NET process,
 all to push ~20 numbers to a small USB panel. This workspace documents how it talks to
 that panel and replaces it with a single 3.7 MB executable.
