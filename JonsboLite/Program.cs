@@ -45,7 +45,8 @@ public static class Program
 
         if (ArgValue(args, "--unit") is { } unit) config.TempUnit = unit;
         if (ArgValue(args, "--display-mode") is { } dm && int.TryParse(dm, out int dmv)) config.DisplayMode = Math.Clamp(dmv, 0, 1);
-        if (ArgValue(args, "--interval") is { } iv && int.TryParse(iv, out int ivv)) config.IntervalMs = Math.Clamp(ivv, 20, 5000);
+        if (ArgValue(args, "--interval") is { } iv && int.TryParse(iv, out int ivv))
+            config.IntervalMs = Math.Clamp(ivv, Config.MinIntervalMs, Config.MaxIntervalMs);
 
         if (args.Contains("--write-config"))
         {

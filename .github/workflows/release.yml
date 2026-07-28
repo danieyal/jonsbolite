@@ -42,11 +42,13 @@ jobs:
           set -eu
           version="${INPUT_VERSION:-}"
           [ -n "$version" ] || version="${REF_NAME#v}"
-          # MSI ProductVersion rejects anything that is not major.minor.patch.
-          case "$version" in
-            [0-9]*.[0-9]*.[0-9]*) ;;
-            *) echo "version must be major.minor.patch, got '$version'" >&2; exit 1 ;;
-          esac
+          # MSI ProductVersion rejects anything that is not major.minor.patch. A glob
+          # cannot express this: in a case pattern [0-9]* is one digit then anything, so
+          # it would happily accept 1.2.3-beta and fail much later inside build-msi.ps1.
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "version must be major.minor.patch, got '$version'" >&2
+            exit 1
+          fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "building $version"
 

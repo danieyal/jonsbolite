@@ -9,6 +9,9 @@ Electron, node-hid, hidapi or the CPUID/HWiNFO SDKs.
   .\send-frame.ps1 -Seconds 60          # run longer
   .\send-frame.ps1 -CpuTemp 72.5 -GpuTemp 61 -CpuUtil 30 -GpuUtil 90 -FanRpm 900
 
+Temperatures are always given in Celsius. -TempUnit F converts them and sets the panel's
+unit flag, the same way the application does.
+
 Sensor values are parameters here on purpose: reading real sensors is the part
 this script deliberately leaves to a proper implementation (LibreHardwareMonitorLib).
 #>
@@ -93,8 +96,15 @@ public class JonsboHid {
 function New-Payload {
   $p = New-Object byte[] 64
 
+  # Temperatures are given in Celsius and converted here, matching how the app works:
+  # readings stay Celsius internally and the unit is applied at pack time. Setting the
+  # unit byte without converting would send, say, 72.5 with the Fahrenheit flag and make
+  # the panel display 72.5 °F.
+  $cpuC = if ($TempUnit -eq 'F') { $CpuTemp * 9.0 / 5.0 + 32.0 } else { $CpuTemp }
+  $gpuC = if ($TempUnit -eq 'F') { $GpuTemp * 9.0 / 5.0 + 32.0 } else { $GpuTemp }
+
   # Values are clamped the same way the original does before splitting.
-  $ct = [Math]::Min($CpuTemp,  999.0); $gt = [Math]::Min($GpuTemp,  999.0)
+  $ct = [Math]::Min($cpuC, 999.0); $gt = [Math]::Min($gpuC, 999.0)
   $cp = [Math]::Min($CpuPower, 9999.0); $gp = [Math]::Min($GpuPower, 9999.0)
   $cc = [Math]::Min($CpuClockMhz, 9999); $gc = [Math]::Min($GpuClockMhz, 9999)
   $fr = [Math]::Min($FanRpm, 9999);      $pr = [Math]::Min($PumpRpm, 9999)

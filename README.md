@@ -63,6 +63,14 @@ uv tool install zizmor          # or pipx install zizmor
 GH_TOKEN=$(gh auth token) zizmor --persona pedantic .github/workflows/
 ```
 
+The packaging scripts are linted with [shellcheck](https://www.shellcheck.net/), including
+its style checks. On Windows there is no native package, so the least painful route is:
+
+```powershell
+npm install --no-save shellcheck
+.\node_modules\shellcheck\bin\shellcheck.exe packaging/linux/*.sh
+```
+
 Actions are pinned to commit hashes rather than tags — a tag can be moved by whoever
 controls it. The trailing comment on each `uses:` records the human-readable version.
 

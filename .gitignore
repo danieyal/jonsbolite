@@ -24,6 +24,11 @@
 jonsbolite.json
 
 # ---------------------------------------------------------------------------
+# Local tooling. shellcheck has no Windows package, so `npm i --no-save shellcheck`
+# is the practical way to run the same lint CI does before pushing.
+node_modules/
+
+# ---------------------------------------------------------------------------
 # Editors / OS
 # ---------------------------------------------------------------------------
 .vs/

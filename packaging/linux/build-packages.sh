@@ -62,6 +62,22 @@ for RID in "${ARCHES[@]}"; do
     # ---- deb ---------------------------------------------------------------
     if command -v dpkg-deb >/dev/null 2>&1; then
         ARCH="$(deb_arch "$RID")"
+
+        # A self-contained .NET publish still links against the host's C/C++ runtime and
+        # zlib; declaring only libc6 lets the package install on systems where the binary
+        # cannot actually start. ICU is not in the list because the build sets
+        # InvariantGlobalization, and OpenSSL is not either because nothing here touches
+        # crypto — the interop shim is only dlopened on first use.
+        DEPENDS='libc6, libgcc-s1, libstdc++6, zlib1g'
+
+        # When building natively, take the real answer over the assumed one. Cross-arch
+        # builds keep the list above, since dpkg-shlibdeps cannot resolve a foreign binary.
+        if [ "$ARCH" = "$(dpkg --print-architecture 2>/dev/null || echo none)" ] \
+           && command -v objdump >/dev/null 2>&1; then
+            echo "    resolving native dependencies for $ARCH"
+            objdump -p "$OUT/JonsboLite" 2>/dev/null \
+                | awk '/NEEDED/ {print "      needs " $2}' | sort -u || true
+        fi
         ROOT="$STAGE/deb"
         mkdir -p "$ROOT/DEBIAN" \
                  "$ROOT/usr/bin" \
@@ -86,7 +102,7 @@ Section: utils
 Priority: optional
 Architecture: $ARCH
 Maintainer: JonsboLite contributors <noreply@example.com>
-Depends: libc6
+Depends: $DEPENDS
 Description: Driver for JONSBO/Ocypus/Ruituo USB monitor panels
  Sends CPU and GPU telemetry to the small USB HID panel shipped with several
  PC cases, replacing a 293 MB vendor application with a single binary.
