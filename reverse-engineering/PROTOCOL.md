@@ -217,13 +217,20 @@ for `HID_ID=0003:00005131:00002007` (or `...2009` / `...200A`). The **same 65-by
 works unchanged**: Linux hidraw's `write()` also takes the report ID as byte 0, using
 `0x00` for unnumbered reports, which is exactly what the Windows path already sends.
 
-hidraw nodes are root-only by default, so ship a udev rule:
+hidraw nodes are root-only by default, so ship a udev rule — one line per supported
+product ID, or a vendor-wide match if you prefer:
 
-```
+```udev
 SUBSYSTEM=="hidraw", ATTRS{idVendor}=="5131", ATTRS{idProduct}=="2007", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="5131", ATTRS{idProduct}=="2009", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="5131", ATTRS{idProduct}=="200a", TAG+="uaccess"
 ```
 
-`uaccess` grants the logged-in user access, so the panel needs no privilege at all.
+`idProduct` is matched lowercase. `uaccess` grants the logged-in user access, so the panel
+needs no privilege at all. The shipped rule is
+[`JonsboLite/Linux/99-jonsbolite.rules`](../JonsboLite/Linux/99-jonsbolite.rules), which
+also carries a `GROUP=` variant for headless machines where there is no active seat for
+`uaccess` to target.
 
 **Sensors.** LibreHardwareMonitor is effectively Windows-only; the equivalents are sysfs:
 

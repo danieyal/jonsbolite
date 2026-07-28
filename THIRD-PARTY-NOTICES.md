@@ -18,10 +18,10 @@ themselves, which are used **unmodified**:
 
 | Component | Version | License | Source |
 |---|---|---|---|
-| LibreHardwareMonitorLib | 0.9.7-pre715 | MPL-2.0 | https://github.com/LibreHardwareMonitor/LibreHardwareMonitor |
-| BlackSharp.Core | 1.1.3 | MPL-2.0 | https://github.com/Blacktempel/BlackSharp |
-| DiskInfoToolkit | 2.1.2 | MPL-2.0 | https://github.com/Blacktempel/DiskInfoToolkit |
-| RAMSPDToolkit-NDD | 1.5.0 | MPL-2.0 | https://github.com/Blacktempel/RAMSPDToolkit |
+| LibreHardwareMonitorLib | 0.9.6 | MPL-2.0 | https://github.com/LibreHardwareMonitor/LibreHardwareMonitor |
+| BlackSharp.Core | 1.0.7 | MPL-2.0 | https://github.com/Blacktempel/BlackSharp |
+| DiskInfoToolkit | 1.1.2 | MPL-2.0 | https://github.com/Blacktempel/DiskInfoToolkit |
+| RAMSPDToolkit-NDD | 1.4.2 | MPL-2.0 | https://github.com/Blacktempel/RAMSPDToolkit |
 
 Full text: https://mozilla.org/MPL/2.0/
 
@@ -34,18 +34,20 @@ be made available. Everything in `JonsboLite/` is original work and unaffected.
 |---|---|---|---|
 | HidSharp | 2.6.4 | Apache-2.0 | https://software.seekye.com/hidsharp |
 | Mono.Posix.NETStandard | 1.0.0 | MIT | https://github.com/mono/mono |
-| System.CodeDom | 10.0.10 | MIT | https://github.com/dotnet/runtime |
-| System.IO.Ports | 10.0.10 | MIT | https://github.com/dotnet/runtime |
-| System.Management | 10.0.10 | MIT | https://github.com/dotnet/runtime |
-| System.Threading.AccessControl | 10.0.10 | MIT | https://github.com/dotnet/runtime |
+| System.CodeDom | 10.0.2 | MIT | https://github.com/dotnet/runtime |
+| System.IO.Ports | 10.0.3 | MIT | https://github.com/dotnet/runtime |
+| System.Management | 10.0.2 | MIT | https://github.com/dotnet/runtime |
+| System.Threading.AccessControl | 10.0.3 | MIT | https://github.com/dotnet/runtime |
 
 HidSharp is Apache-2.0: Copyright 2010-2025 James F. Bellinger. Apache-2.0 requires that
 its attribution notice be retained, which this file does.
 Full text: https://www.apache.org/licenses/LICENSE-2.0
 
 HidSharp and the toolkit packages arrive transitively through LibreHardwareMonitorLib.
-JonsboLite's own HID transport ([`HidDisplay.cs`](JonsboLite/HidDisplay.cs)) does not use
-HidSharp — it calls SetupAPI and `WriteFile` directly.
+JonsboLite's own HID transports do not use it: on Windows,
+[`WindowsHidPanel.cs`](JonsboLite/Windows/WindowsHidPanel.cs) calls SetupAPI and
+`WriteFile` directly, and on Linux
+[`LinuxHidRawPanel.cs`](JonsboLite/Linux/LinuxHidRawPanel.cs) writes to `/dev/hidraw`.
 
 ## Kernel driver
 

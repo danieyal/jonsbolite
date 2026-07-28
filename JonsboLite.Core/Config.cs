@@ -20,6 +20,10 @@ public sealed class Config
     /// <summary>0 or 1. Ocypus panels swap CPU temp/power, Ruituo panels swap CPU load/power.</summary>
     public int DisplayMode { get; set; }
 
+    /// <summary>Bounds for <see cref="IntervalMs"/>, shared with the CLI so both agree.</summary>
+    public const int MinIntervalMs = 20;
+    public const int MaxIntervalMs = 5000;
+
     /// <summary>Frame cadence. The official app uses 200 ms.</summary>
     public int IntervalMs { get; set; } = 200;
 
@@ -30,7 +34,7 @@ public sealed class Config
     public Dictionary<string, string> Sensors { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     [JsonIgnore]
-    public TempUnit Unit => TempUnit.Trim().StartsWith("F", StringComparison.OrdinalIgnoreCase)
+    public TempUnit Unit => TempUnit?.Trim().StartsWith("F", StringComparison.OrdinalIgnoreCase) == true
         ? JonsboLite.TempUnit.Fahrenheit
         : JonsboLite.TempUnit.Celsius;
 
@@ -79,6 +83,7 @@ public sealed class Config
         try
         {
             Config c = JsonSerializer.Deserialize(File.ReadAllText(path), Json.Config) ?? new Config();
+            c.Normalize();
             c.SourcePath = path;
             return c;
         }
@@ -87,6 +92,28 @@ public sealed class Config
             Console.Error.WriteLine($"warning: could not read {path} ({ex.Message}) — using defaults");
             return new Config { SourcePath = path };
         }
+    }
+
+    /// <summary>
+    /// Brings a deserialized instance back into a range the rest of the app can rely on.
+    /// The file is hand-edited, and JSON that parses fine can still be nonsense: a null
+    /// <c>tempUnit</c> or <c>sensors</c> would throw at the point of use, and an
+    /// <c>intervalMs</c> of 0 would turn the send loop into a spin. The CLI clamps the
+    /// same values, but only for options actually passed on the command line.
+    /// </summary>
+    private void Normalize()
+    {
+        TempUnit = Unit == JonsboLite.TempUnit.Fahrenheit ? "F" : "C";
+        DisplayMode = Math.Clamp(DisplayMode, 0, 1);
+        IntervalMs = Math.Clamp(IntervalMs, MinIntervalMs, MaxIntervalMs);
+
+        // Rebuilt rather than null-checked: System.Text.Json hands back a fresh dictionary
+        // with the default comparer, discarding the case-insensitive one declared above.
+        // Without this, a config written with "PumpRpm" would never match the "pumpRpm"
+        // key the binder looks up, and would fail silently.
+        Sensors = Sensors is { Count: > 0 }
+            ? new Dictionary<string, string>(Sensors, StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     }
 
     public void Save(string? path = null)

@@ -45,8 +45,12 @@
     <Compile Remove="Linux\**" />
   </ItemGroup>
 
+  <!-- The stable release, not the 0.9.7 prerelease stream. Checked on the hardware this
+       was developed against (Ryzen 7 8700F, RX 9060 XT, Nuvoton NCT6687D): 0.9.6 binds
+       all twelve panel fields to the same sensors with the same values, so the
+       prerelease bought nothing and only widened the supply-chain surface. -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
-    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.7-pre715" />
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
   </ItemGroup>
 
   <!-- Protocol, config and the platform abstractions. Plain net8.0, no OS dependency. -->

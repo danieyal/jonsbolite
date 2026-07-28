@@ -15,7 +15,9 @@ PREFIX="${PREFIX:-$HOME/.local}"
 BIN_DIR="$PREFIX/bin"
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 UDEV_RULE=/etc/udev/rules.d/99-jonsbolite.rules
-SRC="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+# CDPATH='' rather than CDPATH= : both clear it for this one command, but the bare form
+# reads as a stray assignment to shellcheck (SC1007).
+SRC="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
