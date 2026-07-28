@@ -95,8 +95,7 @@ public sealed class Tray : IDisposable
         });
     }
 
-    private double Show(double celsius) =>
-        _config.Unit == TempUnit.Fahrenheit ? celsius * 9.0 / 5.0 + 32.0 : celsius;
+    private double Show(double celsius) => Frame.ConvertTemp(celsius, _config.Unit);
 
     private void SetUnit(string unit)
     {

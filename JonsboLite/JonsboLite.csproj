@@ -24,6 +24,11 @@
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.7-pre715" />
   </ItemGroup>
 
+  <!-- Protocol, config and the platform abstractions. Plain net8.0, no OS dependency. -->
+  <ItemGroup>
+    <ProjectReference Include="..\JonsboLite.Core\JonsboLite.Core.csproj" />
+  </ItemGroup>
+
   <!-- LibreHardwareMonitorLib pulls in Mono.Posix.NETStandard for its Linux paths, which
        drags ~1.5 MB of native helpers we can never execute on a Windows-only build.
        Verified: the app runs identically without them. -->

@@ -103,16 +103,34 @@ at ~1.1–1.3 V. Pin `cpuVid` in config if you want the raw VID instead.
 
 ## Layout
 
+Two projects. `JonsboLite.Core` targets plain `net8.0` — no OS suffix, no platform
+packages — so anything that reaches for P/Invoke, WinForms or LibreHardwareMonitor fails
+to compile there. That is what keeps the protocol portable rather than merely intended to be.
+
+**`../JonsboLite.Core/`** — portable, no OS dependency
+
 | File | |
 |---|---|
-| `HidDisplay.cs` | device discovery + 65-byte writes, raw SetupAPI/`WriteFile` |
-| `Frame.cs` | the protocol — packs readings into the 64-byte payload |
-| `Sensors.cs` | LibreHardwareMonitor wrapper + field-to-sensor binding |
-| `Config.cs` | `jonsbolite.json` |
+| `Frame.cs` | the protocol: packs readings into the 64-byte payload |
+| `Readings.cs` | the twelve values, plus the temperature unit |
+| `PanelField.cs` | field enum and its config-key naming |
+| `IPanelTransport.cs` | how frames reach the panel |
+| `ISensorSource.cs` | where values come from |
+| `Config.cs` | `jonsbolite.json`, source-generated JSON (trim/AOT safe) |
+
+**`JonsboLite/`** — Windows
+
+| File | |
+|---|---|
+| `WindowsHidPanel.cs` | `IPanelTransport` via SetupAPI + `WriteFile` |
+| `LibreHardwareSensors.cs` | `ISensorSource` via LibreHardwareMonitor + field binding |
+| `Platform.cs` | the one place that picks an implementation |
+| `Tray.cs` | notification-area icon |
 | `Program.cs` | CLI, reconnect loop |
 
-`Frame.cs` has no dependency on the sensor layer and `HidDisplay.cs` has no dependency on
-either — the protocol is reusable on its own.
+A port means two new classes and a branch in `Platform.cs`. The protocol, config, CLI and
+send loop are untouched by it — see the Linux notes in
+[../reverse-engineering/PROTOCOL.md](../reverse-engineering/PROTOCOL.md).
 
 ## Differences from the original
 

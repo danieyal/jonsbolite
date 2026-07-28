@@ -207,6 +207,47 @@ The display side is trivial — 64 bytes at 5 Hz, no state. The only real work i
 - The 64-byte **input report is unexplored**. If you want device→host status or button
   events, that is where to look; the official app never reads it.
 
+## Porting to Linux
+
+Nothing in the protocol is Windows-specific, and the panel needs no vendor driver — the
+kernel binds `hidraw` to a vendor-defined HID automatically.
+
+**Transport.** Open `/dev/hidraw*`; discover by scanning `/sys/class/hidraw/*/device/uevent`
+for `HID_ID=0003:00005131:00002007` (or `...2009` / `...200A`). The **same 65-byte buffer
+works unchanged**: Linux hidraw's `write()` also takes the report ID as byte 0, using
+`0x00` for unnumbered reports, which is exactly what the Windows path already sends.
+
+hidraw nodes are root-only by default, so ship a udev rule:
+
+```
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="5131", ATTRS{idProduct}=="2007", TAG+="uaccess"
+```
+
+`uaccess` grants the logged-in user access, so the panel needs no privilege at all.
+
+**Sensors.** LibreHardwareMonitor is effectively Windows-only; the equivalents are sysfs:
+
+| Field | Source |
+|---|---|
+| CPU temp | `/sys/class/hwmon/*` with `name` = `k10temp` (AMD) or `coretemp` (Intel) → `temp1_input` |
+| CPU load | `/proc/stat` |
+| CPU clock | `/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq` |
+| CPU power | `/sys/class/powercap/` RAPL — coverage on Zen is patchy, the weakest field |
+| Vcore, fans | SuperIO driver, `nct6683` for the NCT6687D — usually needs `modprobe nct6683 force=1`, as most consumer boards are not whitelisted |
+| GPU (AMD) | `/sys/class/drm/card*/device/gpu_busy_percent` plus its `hwmon/` for temp, power, freq |
+| GPU (NVIDIA) | NVML (`libnvidia-ml.so`) |
+| Memory | `/proc/meminfo` |
+
+hwmon is world-readable, so unlike Windows this needs **no elevation**.
+
+**Everything else.** `JonsboLite.Core` already targets plain `net8.0`; a port is two new
+classes behind `IPanelTransport` / `ISensorSource` and a branch in `Platform.cs`. The tray
+is the one piece that does not carry over — WinForms `NotifyIcon` is Windows-only, so
+either run headless under `systemd --user` or implement StatusNotifierItem over D-Bus.
+
+None of the Linux specifics above have been tested on hardware; they are derived from the
+kernel interfaces, unlike the Windows behaviour in this document, which is verified.
+
 ## Open questions
 
 - Whether the firmware requires the `00 01 02` header or ignores it (it is constant in

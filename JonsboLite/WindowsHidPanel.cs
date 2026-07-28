@@ -5,17 +5,18 @@ using System.Runtime.Versioning;
 namespace JonsboLite;
 
 /// <summary>
-/// Talks to the JONSBO / Ocypus / Ruituo monitor panel over its vendor-defined HID
-/// interface. Raw SetupAPI + CreateFile/WriteFile — no hidapi, no node-hid.
+/// Windows transport for the JONSBO / Ocypus / Ruituo monitor panel: raw SetupAPI +
+/// CreateFile/WriteFile against its vendor-defined HID interface — no hidapi, no node-hid.
 ///
-/// The report descriptor declares no Report ID, so Windows expects a leading 0x00
-/// prefix byte followed by exactly 64 payload bytes (OutputReportByteLength = 65).
+/// The report descriptor declares no Report ID, so Windows expects a leading 0x00 prefix
+/// byte followed by exactly 64 payload bytes (OutputReportByteLength = 65). Linux hidraw
+/// uses the same convention, which is why <see cref="IPanelTransport"/> can hand both
+/// implementations an unprefixed 64-byte payload.
 /// </summary>
 [SupportedOSPlatform("windows")]
-public sealed class HidDisplay : IDisposable
+public sealed class WindowsHidPanel : IPanelTransport
 {
-    public const int PayloadLength = 64;
-    private const int FrameLength = PayloadLength + 1; // + report-ID prefix
+    private const int FrameLength = Frame.PayloadLength + 1; // + report-ID prefix
 
     private const ushort VendorId = 0x5131;
     private static readonly ushort[] ProductIds = { 0x2007, 0x2009, 0x200A };
@@ -26,6 +27,11 @@ public sealed class HidDisplay : IDisposable
     public string? DevicePath { get; private set; }
     public ushort ProductId { get; private set; }
     public bool IsOpen => _handle is { IsInvalid: false, IsClosed: false };
+
+    public string? Description => IsOpen ? $"{ModelName(ProductId)}  {DevicePath}" : null;
+
+    /// <summary>Short model label, also used by the tray tooltip.</summary>
+    public string Model => ModelName(ProductId);
 
     public static string ModelName(ushort pid) => pid switch
     {
@@ -67,8 +73,8 @@ public sealed class HidDisplay : IDisposable
     /// <summary>Writes one 64-byte payload. Returns false if the device went away.</summary>
     public bool Send(ReadOnlySpan<byte> payload)
     {
-        if (payload.Length != PayloadLength)
-            throw new ArgumentException($"payload must be exactly {PayloadLength} bytes", nameof(payload));
+        if (payload.Length != Frame.PayloadLength)
+            throw new ArgumentException($"payload must be exactly {Frame.PayloadLength} bytes", nameof(payload));
         if (!IsOpen) return false;
 
         _frame[0] = 0x00; // Windows report-ID prefix; HIDCLASS strips it before the wire

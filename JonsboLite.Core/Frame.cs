@@ -1,31 +1,24 @@
 namespace JonsboLite;
 
-/// <summary>One snapshot of everything the panel can display.</summary>
-public sealed class Readings
-{
-    public double CpuTemp, CpuLoad, CpuPower, CpuClock, CpuVid;
-    public double GpuTemp, GpuLoad, GpuPower, GpuClock;
-    public double FanRpm, PumpRpm, MemLoad;
-}
-
-public enum TempUnit { Celsius = 0, Fahrenheit = 1 }
-
 /// <summary>
-/// Packs a <see cref="Readings"/> into the 64-byte payload documented in
-/// reverse-engineering/PROTOCOL.md.
+/// The wire protocol, in full. See reverse-engineering/PROTOCOL.md.
 ///
-/// Nothing here is bit-packed: every byte carries a decimal quantity, and wide values
-/// are split across two or three bytes by /100 and %100.
+/// Nothing here is bit-packed: every byte carries a decimal quantity, and wide values are
+/// split across two or three bytes by /100 and %100. This type is deliberately free of any
+/// OS dependency — it is the same 64 bytes on every platform.
 /// </summary>
 public static class Frame
 {
+    /// <summary>Payload size the panel expects. Transports add any report-ID framing themselves.</summary>
+    public const int PayloadLength = 64;
+
     /// <summary>Header the official app sends in every frame.</summary>
     private static ReadOnlySpan<byte> Header => new byte[] { 0x00, 0x01, 0x02 };
 
     public static void Pack(Span<byte> p, Readings r, TempUnit unit, int displayMode, DateTime now)
     {
-        if (p.Length != HidDisplay.PayloadLength)
-            throw new ArgumentException("payload must be 64 bytes", nameof(p));
+        if (p.Length != PayloadLength)
+            throw new ArgumentException($"payload must be {PayloadLength} bytes", nameof(p));
         p.Clear();
         Header.CopyTo(p);
 
@@ -68,7 +61,7 @@ public static class Frame
         // 42..63 unused
     }
 
-    private static double ConvertTemp(double celsius, TempUnit unit) =>
+    public static double ConvertTemp(double celsius, TempUnit unit) =>
         unit == TempUnit.Fahrenheit ? celsius * 9.0 / 5.0 + 32.0 : celsius;
 
     private static byte Percent(double v) => (byte)Clamp(v, 0, 100);
@@ -77,7 +70,7 @@ public static class Frame
     private static (byte, byte) Fixed2(double v, double max)
     {
         v = Clamp(v, 0, max);
-        var whole = Math.Floor(v);
+        double whole = Math.Floor(v);
         return ((byte)whole, (byte)Clamp(Math.Floor((v - whole) * 100), 0, 99));
     }
 
@@ -85,14 +78,14 @@ public static class Frame
     private static (byte, byte, byte) Fixed3(double v)
     {
         v = Clamp(v, 0, 9999);
-        var whole = (int)Math.Floor(v);
+        int whole = (int)Math.Floor(v);
         return ((byte)(whole / 100), (byte)(whole % 100), (byte)Clamp(Math.Floor((v - whole) * 100), 0, 99));
     }
 
     /// <summary>High/low pair for values up to 9999, e.g. 4550 MHz -> (45, 50).</summary>
     private static (byte, byte) Split100(double v)
     {
-        var whole = (int)Clamp(v, 0, 9999);
+        int whole = (int)Clamp(v, 0, 9999);
         return ((byte)(whole / 100), (byte)(whole % 100));
     }
 
