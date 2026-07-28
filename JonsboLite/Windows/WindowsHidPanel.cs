@@ -18,9 +18,6 @@ public sealed class WindowsHidPanel : IPanelTransport
 {
     private const int FrameLength = Frame.PayloadLength + 1; // + report-ID prefix
 
-    private const ushort VendorId = 0x5131;
-    private static readonly ushort[] ProductIds = { 0x2007, 0x2009, 0x200A };
-
     private SafeFileHandle? _handle;
     private readonly byte[] _frame = new byte[FrameLength];
 
@@ -28,18 +25,8 @@ public sealed class WindowsHidPanel : IPanelTransport
     public ushort ProductId { get; private set; }
     public bool IsOpen => _handle is { IsInvalid: false, IsClosed: false };
 
-    public string? Description => IsOpen ? $"{ModelName(ProductId)}  {DevicePath}" : null;
-
-    /// <summary>Short model label, also used by the tray tooltip.</summary>
-    public string Model => ModelName(ProductId);
-
-    public static string ModelName(ushort pid) => pid switch
-    {
-        0x2007 => "reference (公版)",
-        0x2009 => "Ocypus (奥斯艾)",
-        0x200A => "Ruituo (锐拓)",
-        _ => $"unknown 0x{pid:X4}",
-    };
+    public string Model => PanelModels.Name(ProductId);
+    public string? Description => IsOpen ? $"{Model}  {DevicePath}" : null;
 
     /// <summary>Finds and opens the first supported panel. Returns false if none is present.</summary>
     public bool Open()
@@ -102,9 +89,9 @@ public sealed class WindowsHidPanel : IPanelTransport
                 string? path = GetInterfacePath(set, ref iface);
                 if (path is null) continue;
 
-                foreach (ushort pid in ProductIds)
+                foreach (ushort pid in PanelModels.ProductIds)
                 {
-                    if (path.Contains($"vid_{VendorId:x4}&pid_{pid:x4}", StringComparison.OrdinalIgnoreCase))
+                    if (path.Contains($"vid_{PanelModels.VendorId:x4}&pid_{pid:x4}", StringComparison.OrdinalIgnoreCase))
                     {
                         yield return (path, pid);
                         break;

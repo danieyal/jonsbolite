@@ -2,25 +2,38 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- net8.0 is the Linux/portable build; net8.0-windows adds WinForms for the tray
+         and LibreHardwareMonitor for sensors. Building both is what proves the Linux
+         code still compiles from a Windows dev box. -->
+    <TargetFrameworks>net8.0;net8.0-windows</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>JonsboLite</AssemblyName>
     <RootNamespace>JonsboLite</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <!-- Tray icon only. Kept as a console subsystem app (OutputType Exe) so the sensor
-         diagnostic switches still write to the terminal that launched them; the console
-         window is hidden at runtime when the tray is active. -->
-    <UseWindowsForms>true</UseWindowsForms>
-    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <SelfContained>false</SelfContained>
-    <PublishSingleFile>true</PublishSingleFile>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
     <Version>1.0.0</Version>
+    <!-- Single file needs a RID; publishing without one still produces a portable build. -->
+    <PublishSingleFile Condition="'$(RuntimeIdentifier)' != ''">true</PublishSingleFile>
+    <SelfContained>false</SelfContained>
   </PropertyGroup>
 
-  <ItemGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <!-- Platform implementations are selected by folder, so neither can accidentally leak
+       into the other's build. Platform.cs picks between them with #if WINDOWS. -->
+  <ItemGroup Condition="'$(TargetFramework)' != 'net8.0-windows'">
+    <Compile Remove="Windows\**" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <Compile Remove="Linux\**" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.7-pre715" />
   </ItemGroup>
 

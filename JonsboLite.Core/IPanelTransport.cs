@@ -16,6 +16,9 @@ public interface IPanelTransport : IDisposable
     /// <summary>Human-readable identity of the connected panel, or null when closed.</summary>
     string? Description { get; }
 
+    /// <summary>Short model label, without the device path. For status displays.</summary>
+    string Model { get; }
+
     /// <summary>Finds and opens the first supported panel. False when none is present.</summary>
     bool Open();
 

@@ -1,0 +1,23 @@
+# udev rules for JONSBO / Ocypus / Ruituo monitor panels (VID 0x5131).
+#
+# hidraw nodes are root-only by default. TAG+="uaccess" hands the device to whoever is
+# logged in at the seat, so JonsboLite needs no privilege of its own — unlike Windows,
+# where sensor access forces elevation.
+#
+# Install:
+#   sudo cp 99-jonsbolite.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+# then replug the panel.
+#
+# Running headless (systemd system service, no logged-in seat)? uaccess will not apply.
+# Comment the uaccess lines and use the GROUP form below instead.
+
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="5131", ATTRS{idProduct}=="2007", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="5131", ATTRS{idProduct}=="2009", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="5131", ATTRS{idProduct}=="200a", TAG+="uaccess"
+
+# Headless alternative — create the group first: sudo groupadd -f jonsbolite
+#   sudo usermod -aG jonsbolite <user>
+#SUBSYSTEM=="hidraw", ATTRS{idVendor}=="5131", ATTRS{idProduct}=="2007", GROUP="jonsbolite", MODE="0660"
+#SUBSYSTEM=="hidraw", ATTRS{idVendor}=="5131", ATTRS{idProduct}=="2009", GROUP="jonsbolite", MODE="0660"
+#SUBSYSTEM=="hidraw", ATTRS{idVendor}=="5131", ATTRS{idProduct}=="200a", GROUP="jonsbolite", MODE="0660"

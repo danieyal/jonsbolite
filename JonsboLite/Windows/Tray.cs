@@ -11,7 +11,7 @@ namespace JonsboLite;
 /// runtime (unit, display mode, console visibility).
 /// </summary>
 [SupportedOSPlatform("windows")]
-public sealed class Tray : IDisposable
+public sealed class Tray : IStatusSink, IDisposable
 {
     private readonly NotifyIcon _icon;
     private readonly Config _config;

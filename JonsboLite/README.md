@@ -14,13 +14,29 @@ documented in [`../reverse-engineering/PROTOCOL.md`](../reverse-engineering/PROT
 
 ## Build
 
+**Windows**
+
 ```powershell
-dotnet publish -c Release
-# -> bin\Release\net8.0-windows\win-x64\publish\JonsboLite.exe
+dotnet publish -f net8.0-windows -c Release
+# -> bin\Release\net8.0-windows\win-x64\publish\JonsboLite.exe        3.7 MB
 ```
 
-Framework-dependent, so it needs the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0).
-For a no-runtime-required build at the cost of size, add `-p:SelfContained=true`.
+Needs the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0).
+
+**Linux**
+
+```bash
+dotnet publish -f net8.0 -r linux-x64 -c Release
+# -> bin/Release/net8.0/linux-x64/publish/JonsboLite                  134 KB
+
+# or with the runtime baked in, nothing to install on the target:
+dotnet publish -f net8.0 -r linux-x64 -c Release \
+  -p:SelfContained=true -p:PublishTrimmed=true                      # 13.2 MB
+```
+
+The Linux build is tiny because it needs no sensor library — the kernel already exposes
+everything through hwmon and procfs. It trims cleanly, so the self-contained build is a
+single dependency-free 13 MB file. Swap `linux-x64` for `linux-arm64` on a Pi or similar.
 
 ## Run
 
@@ -50,11 +66,12 @@ and GPU temp/load plus fan and memory. Right-click for:
 Unit and mode changes are written back to `jonsbolite.json` immediately. Use `--no-tray`
 for a plain foreground process, `--console` to keep the window up in tray mode.
 
-**Run it elevated.** LibreHardwareMonitor needs ring-0 access for CPU package
-temperature/power/clock and motherboard fan tachometers. Unelevated those fields read 0
-and the app says so on startup. `install-autostart.ps1` registers a hidden elevated logon
-task — the same mechanism the official app uses — so you get elevation without a UAC
-prompt every boot:
+### Windows: run it elevated
+
+LibreHardwareMonitor needs ring-0 access for CPU package temperature/power/clock and
+motherboard fan tachometers. Unelevated those fields read 0 and the app says so on startup.
+`install-autostart.ps1` registers a hidden elevated logon task — the same mechanism the
+official app uses — so you get elevation without a UAC prompt every boot:
 
 ```powershell
 # from an elevated PowerShell
@@ -67,6 +84,40 @@ Start-ScheduledTask -TaskName JonsboLite
 The official app's own autostart task must be disabled first, or both will fight over
 the panel. Look for a `JONSBO_PC_Monitor` (or `C-STAT` / `HT_DIGITAL` / `Ocypus_Display`)
 scheduled task.
+
+### Linux: no privilege needed
+
+hwmon and procfs are world-readable, and panel access comes from a udev rule rather than
+from running as root — so unlike Windows, nothing here wants elevation.
+
+```bash
+sudo cp Linux/99-jonsbolite.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules && sudo udevadm trigger
+# replug the panel, then:
+./JonsboLite --show-binding
+```
+
+To run it permanently, `Linux/jonsbolite.service` is a systemd **user** unit — it starts
+with your session and needs no root:
+
+```bash
+mkdir -p ~/.config/systemd/user && cp Linux/jonsbolite.service ~/.config/systemd/user/
+# point ExecStart at the binary, then
+systemctl --user daemon-reload && systemctl --user enable --now jonsbolite
+journalctl --user -u jonsbolite -f
+```
+
+Both files carry notes on the headless case, where `uaccess` does not apply because there
+is no active seat — use the `GROUP=` form of the rule and `loginctl enable-linger`.
+
+Two things to expect on first run, and why `--show-binding` is the place to start:
+
+- **Fan and Vcore need a SuperIO driver.** Most consumer boards are not in `nct6683`'s
+  whitelist, so `sudo modprobe nct6683 force=1` is usually required before `fanRpm`,
+  `pumpRpm` and `cpuVid` appear at all. Add it to `/etc/modules-load.d/` once it works.
+- **CPU package power may be missing.** It comes from RAPL via `/sys/class/powercap`,
+  whose AMD coverage varies by kernel version. If `cpuPower` reads 0 and no `package-0`
+  zone exists, that field has no source on your kernel.
 
 ## Configuration
 
@@ -118,19 +169,27 @@ to compile there. That is what keeps the protocol portable rather than merely in
 | `ISensorSource.cs` | where values come from |
 | `Config.cs` | `jonsbolite.json`, source-generated JSON (trim/AOT safe) |
 
-**`JonsboLite/`** — Windows
+**`JonsboLite/`** — the app, built for both `net8.0` and `net8.0-windows`
 
 | File | |
 |---|---|
-| `WindowsHidPanel.cs` | `IPanelTransport` via SetupAPI + `WriteFile` |
-| `LibreHardwareSensors.cs` | `ISensorSource` via LibreHardwareMonitor + field binding |
 | `Platform.cs` | the one place that picks an implementation |
-| `Tray.cs` | notification-area icon |
 | `Program.cs` | CLI, reconnect loop |
+| `Windows/WindowsHidPanel.cs` | transport via SetupAPI + `WriteFile` |
+| `Windows/LibreHardwareSensors.cs` | sensors via LibreHardwareMonitor |
+| `Windows/Tray.cs` | notification-area icon |
+| `Linux/LinuxHidRawPanel.cs` | transport via `/dev/hidraw` |
+| `Linux/LinuxSysfsSensors.cs` | sensors via hwmon, procfs, powercap, drm |
+| `Linux/99-jonsbolite.rules` | udev rule |
+| `Linux/jonsbolite.service` | systemd user unit |
 
-A port means two new classes and a branch in `Platform.cs`. The protocol, config, CLI and
-send loop are untouched by it — see the Linux notes in
-[../reverse-engineering/PROTOCOL.md](../reverse-engineering/PROTOCOL.md).
+The split is compile-time: `Windows/` is excluded from the `net8.0` build and `Linux/`
+from `net8.0-windows`, with `Platform.cs` choosing via `#if WINDOWS`. Building both
+frameworks — which `dotnet build` does by default — is what stops either side rotting.
+
+The only thing that does not carry over is the tray: WinForms `NotifyIcon` is Windows-only,
+so the Linux build runs headless and `--no-tray` is implicit. `IStatusSink` is the seam
+where a StatusNotifierItem implementation would go.
 
 ## Differences from the original
 
@@ -147,6 +206,15 @@ Also: writes are exactly 65 bytes instead of a 69-byte buffer that Windows trunc
 MIT ([../LICENSE](../LICENSE)). The single-file exe bundles LibreHardwareMonitorLib and
 its transitive dependencies — four are MPL-2.0, one Apache-2.0 — so distribute
 [../THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md) with any binary you hand out.
+
+## Status
+
+The Windows path is verified against hardware: bindings, frames and the panel itself.
+
+**The Linux path has never been run.** It compiles and publishes, and the protocol it
+sends is the same verified 65 bytes, but no part of the hidraw or sysfs code has touched a
+real device. Treat the sensor bindings especially as a starting point — hwmon labelling
+varies enough between boards that `--show-binding` and a few config pins are likely.
 
 ## Not implemented
 
