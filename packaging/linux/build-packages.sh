@@ -79,14 +79,16 @@ for RID in "${ARCHES[@]}"; do
                 | awk '/NEEDED/ {print "      needs " $2}' | sort -u || true
         fi
         ROOT="$STAGE/deb"
+        # /usr/lib, not /lib: on merged-usr systems /lib is a symlink into /usr/lib, and
+        # dpkg refuses to unpack a package that ships files through it.
         mkdir -p "$ROOT/DEBIAN" \
                  "$ROOT/usr/bin" \
-                 "$ROOT/lib/udev/rules.d" \
+                 "$ROOT/usr/lib/udev/rules.d" \
                  "$ROOT/usr/lib/systemd/user" \
                  "$ROOT/usr/share/doc/jonsbolite"
 
         install -m 0755 "$OUT/JonsboLite" "$ROOT/usr/bin/jonsbolite"
-        install -m 0644 "$REPO/JonsboLite/Linux/99-jonsbolite.rules" "$ROOT/lib/udev/rules.d/"
+        install -m 0644 "$REPO/JonsboLite/Linux/99-jonsbolite.rules" "$ROOT/usr/lib/udev/rules.d/"
         # Packaged binary lives on PATH, so point the unit at it rather than ~/.local/bin.
         sed 's|^ExecStart=.*|ExecStart=/usr/bin/jonsbolite --quiet|' \
             "$REPO/JonsboLite/Linux/jonsbolite.service" \
@@ -101,7 +103,8 @@ Version: $VERSION
 Section: utils
 Priority: optional
 Architecture: $ARCH
-Maintainer: JonsboLite contributors <noreply@example.com>
+Maintainer: danieyal <86613680+danieyal@users.noreply.github.com>
+Homepage: https://github.com/danieyal/jonsbolite
 Depends: $DEPENDS
 Description: Driver for JONSBO/Ocypus/Ruituo USB monitor panels
  Sends CPU and GPU telemetry to the small USB HID panel shipped with several
