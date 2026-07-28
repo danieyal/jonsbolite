@@ -1,0 +1,13 @@
+{
+  "$comment": [
+    "Pins the SDK band so local builds and CI agree. The runners ship a newer SDK than",
+    "this project targets, and since the build runs with warnings as errors, a newer",
+    "SDK's analyzers can fail CI on code that compiled cleanly locally.",
+    "latestFeature allows any 8.0.x SDK, so patch updates are picked up automatically."
+  ],
+  "sdk": {
+    "version": "8.0.100",
+    "rollForward": "latestFeature",
+    "allowPrerelease": false
+  }
+}
