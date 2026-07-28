@@ -90,7 +90,17 @@ public sealed class LinuxSysfsSensors : ISensorSource
         }
     }
 
-    /// <summary>hwmon units are fixed by the kernel ABI, so the scale is knowable from the key.</summary>
+    /// <summary>
+    /// hwmon units are fixed by the kernel ABI, so the scale is knowable from the key.
+    /// Verified against Documentation/hwmon/sysfs-interface.rst — these are stable ABI and
+    /// deliberately not guessed, since a wrong scale here is silently wrong on every read.
+    ///
+    /// freq is the exception: it is not part of the hwmon ABI at all. amdgpu adds
+    /// freq1_input (sclk) and freq2_input (mclk) itself, emitting Hz — the driver reads a
+    /// value in 10 kHz units and multiplies by 10,000 (amdgpu_hwmon_show_sclk in
+    /// drivers/gpu/drm/amd/pm/amdgpu_pm.c). Another driver could reasonably choose
+    /// differently, so treat a nonsensical GPU clock as a scale problem first.
+    /// </summary>
     private static (string Kind, double Scale) Classify(string key) =>
         key.StartsWith("temp", StringComparison.Ordinal) ? (Temperature, 1e-3) :   // millidegree C
         key.StartsWith("fan", StringComparison.Ordinal) ? (Fan, 1.0) :             // RPM
@@ -275,6 +285,22 @@ public sealed class LinuxSysfsSensors : ISensorSource
     public void Dispose() { }
 
     /// <summary>
+    /// Guard shared by the rate-derived meters. Utilisation and power are differences
+    /// between two samples divided by the time between them, so sampling twice in quick
+    /// succession divides a rounding artefact — one jiffy, one microjoule — by a near-zero
+    /// interval and produces nonsense. /proc/stat only advances at USER_HZ, typically
+    /// 100 Hz, so anything under ~100 ms is noise rather than measurement. Below the
+    /// threshold the meters repeat their previous answer instead.
+    /// </summary>
+    private static class RateWindow
+    {
+        private const long MinimumMs = 100;
+
+        public static bool TooSoon(bool primed, long lastTicks) =>
+            primed && Environment.TickCount64 - lastTicks < MinimumMs;
+    }
+
+    /// <summary>
     /// Cumulative microjoules to average watts over the interval between calls.
     /// Primes its baseline at construction so the first Read of the app's life reports a
     /// real figure rather than zero.
@@ -291,10 +317,13 @@ public sealed class LinuxSysfsSensors : ISensorSource
         {
             _path = path;
             _rangeUj = rangeUj;
-            Watts();   // establish the baseline; discovery gives it time before the first real read
+            Sample();   // establish the baseline; discovery gives it time before the first real read
         }
 
-        public double? Watts()
+        public double? Watts() =>
+            RateWindow.TooSoon(!double.IsNaN(_lastEnergy), _lastTicks) ? _watts : Sample();
+
+        private double? Sample()
         {
             double? now = Number(_path);
             if (now is null) return null;
@@ -317,16 +346,22 @@ public sealed class LinuxSysfsSensors : ISensorSource
 
     /// <summary>
     /// CPU utilisation from /proc/stat, as a percentage of the interval between calls.
-    /// Primes its baseline at construction, so the first Read reports a real figure.
+    /// Primes its baseline at construction so the first real read has something to
+    /// subtract from.
     /// </summary>
     private sealed class ProcStatLoad
     {
         private double _lastIdle, _lastTotal;
+        private long _lastTicks;
         private double _percent;
+        private bool _primed;
 
-        public ProcStatLoad() => Percent();
+        public ProcStatLoad() => Sample();
 
-        public double? Percent()
+        public double? Percent() =>
+            RateWindow.TooSoon(_primed, _lastTicks) ? _percent : Sample();
+
+        private double? Sample()
         {
             string? line;
             try { line = File.ReadLines("/proc/stat").FirstOrDefault(l => l.StartsWith("cpu ", StringComparison.Ordinal)); }
@@ -345,10 +380,12 @@ public sealed class LinuxSysfsSensors : ISensorSource
 
             double dTotal = total - _lastTotal;
             double dIdle = idle - _lastIdle;
-            if (_lastTotal > 0 && dTotal > 0) _percent = (1.0 - dIdle / dTotal) * 100.0;
+            if (_primed && dTotal > 0) _percent = (1.0 - dIdle / dTotal) * 100.0;
 
             _lastIdle = idle;
             _lastTotal = total;
+            _lastTicks = Environment.TickCount64;
+            _primed = true;
             return _percent;
         }
     }
