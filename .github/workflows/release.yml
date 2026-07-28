@@ -1,0 +1,143 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build, without the leading v (e.g. 1.2.0)'
+        required: true
+
+permissions:
+  contents: write   # needed to create the release
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        run: |
+          set -eu
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            version="${{ github.event.inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          # MSI ProductVersion rejects anything that is not major.minor.patch.
+          case "$version" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "version must be major.minor.patch, got '$version'" >&2; exit 1 ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "building $version"
+
+  windows:
+    name: Windows packages
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - run: dotnet tool install --global wix --version 5.0.2
+
+      - name: Build MSI and zip
+        run: .\packaging\windows\build-msi.ps1 -Version ${{ needs.version.outputs.version }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            dist/*.msi
+            dist/*.zip
+          if-no-files-found: error
+
+  linux:
+    name: Linux packages
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build tarballs and debs
+        run: |
+          chmod +x packaging/linux/build-packages.sh
+          ./packaging/linux/build-packages.sh ${{ needs.version.outputs.version }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: |
+            dist/*.tar.gz
+            dist/*.deb
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: [version, windows, linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect and checksum
+        run: |
+          set -eu
+          mkdir -p dist
+          find artifacts -type f -exec mv -t dist {} +
+          cd dist
+          sha256sum * > SHA256SUMS
+          ls -la
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -eu
+          notes=$(cat <<'EOF'
+          ## Install
+
+          **Windows** — run the `.msi`, or unzip the portable build anywhere.
+          Needs the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0).
+          For live CPU package temperature, power and fan speeds, use
+          *Enable JonsboLite at startup* from the Start Menu — sensors need ring-0 access.
+
+          **Linux** — `sudo dpkg -i jonsbolite_*.deb`, or unpack a tarball and run `./install.sh`.
+          Self-contained, so no runtime to install. Replug the panel afterwards so the udev
+          rule applies. JonsboLite needs no root on Linux.
+
+          Then check what it picked up:
+
+              jonsbolite --show-binding
+
+          If fan, pump or Vcore read 0, load your board's SuperIO driver:
+          `sudo modprobe nct6683 force=1`.
+
+          ## Note
+
+          The Linux build has had far less real-world exposure than the Windows one.
+          Sensor names in hwmon vary between boards; pin anything it gets wrong in
+          `jonsbolite.json` — see `--list-sensors`.
+          EOF
+          )
+          gh release create "v$VERSION" dist/* \
+            --title "JonsboLite v$VERSION" \
+            --notes "$notes" \
+            --verify-tag

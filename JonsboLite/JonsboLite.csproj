@@ -12,8 +12,6 @@
     <RootNamespace>JonsboLite</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
     <Version>1.0.0</Version>
-    <!-- Single file needs a RID; publishing without one still produces a portable build. -->
-    <PublishSingleFile Condition="'$(RuntimeIdentifier)' != ''">true</PublishSingleFile>
     <SelfContained>false</SelfContained>
   </PropertyGroup>
 
@@ -22,6 +20,13 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <!-- Must come after the RuntimeIdentifier above: MSBuild evaluates properties top to
+       bottom, so testing RuntimeIdentifier any earlier reads it as empty and silently
+       leaves single-file off, publishing loose assemblies instead of one binary. -->
+  <PropertyGroup>
+    <PublishSingleFile Condition="'$(RuntimeIdentifier)' != ''">true</PublishSingleFile>
   </PropertyGroup>
 
   <!-- Platform implementations are selected by folder, so neither can accidentally leak

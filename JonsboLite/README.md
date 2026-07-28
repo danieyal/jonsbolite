@@ -12,7 +12,38 @@ documented in [`../reverse-engineering/PROTOCOL.md`](../reverse-engineering/PROT
 | Sensor stack | `cpuidsdk64` + `HWiNFO64` + `Hardware.Info` | LibreHardwareMonitorLib |
 | Sensor IPC | 64 KB shared file, JSON, polled at 900 ms | in-process |
 
+## Install
+
+Grab a build from the [releases page](https://github.com/danieyal/jonsbolite/releases).
+
+**Windows** — run the `.msi`, or unzip the portable build anywhere. Needs the
+[.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0). Then use
+*Enable JonsboLite at startup* from the Start Menu to register the elevated logon task —
+without it, CPU package temperature, power and fan speeds read 0.
+
+**Linux** — `sudo dpkg -i jonsbolite_*.deb`, or unpack a tarball and run `./install.sh`.
+Self-contained, so there is no runtime to install, and no root is needed to *run* it —
+only to drop the udev rule in place. Replug the panel afterwards.
+
+Either way, start with `jonsbolite --show-binding` to see which sensors it picked.
+
 ## Build
+
+Packaging scripts live in [`../packaging/`](../packaging/) and produce everything a
+release contains:
+
+```powershell
+.\packaging\windows\build-msi.ps1 -Version 1.0.0   # MSI + portable zip -> dist\
+```
+```bash
+./packaging/linux/build-packages.sh 1.0.0          # tar.gz + .deb, x64 and arm64 -> dist/
+```
+
+The Windows script needs the WiX CLI: `dotnet tool install --global wix --version 5.0.2`.
+Version 6 and later require accepting a paid maintenance-fee licence, so this pins to 5,
+the last MIT-licensed line.
+
+To build by hand:
 
 **Windows**
 
@@ -121,7 +152,14 @@ Two things to expect on first run, and why `--show-binding` is the place to star
 
 ## Configuration
 
-Optional `jonsbolite.json` next to the exe. `--write-config` generates one.
+Optional `jonsbolite.json`, looked for in two places, in order:
+
+1. **next to the executable** — a portable copy keeps its settings with it
+2. **the per-user config directory** — `%APPDATA%\JonsboLite\` on Windows,
+   `$XDG_CONFIG_HOME/jonsbolite/` (usually `~/.config/jonsbolite/`) on Linux
+
+An installed copy lives somewhere you cannot write, so it uses the second. `--write-config`
+generates a file and prints where it went; `--config <path>` overrides both.
 
 ```json
 {
