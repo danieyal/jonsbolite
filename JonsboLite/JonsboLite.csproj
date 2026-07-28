@@ -4,8 +4,15 @@
     <OutputType>Exe</OutputType>
     <!-- net8.0 is the Linux/portable build; net8.0-windows adds WinForms for the tray
          and LibreHardwareMonitor for sensors. Building both is what proves the Linux
-         code still compiles from a Windows dev box. -->
-    <TargetFrameworks>net8.0;net8.0-windows</TargetFrameworks>
+         code still compiles from a Windows dev box.
+
+         The Windows framework is offered only on Windows. Even `dotnet build -f net8.0`
+         evaluates every framework in this list, so leaving net8.0-windows in it on Linux
+         fails with NETSDK1100 before any code is compiled. Forcing it through with
+         EnableWindowsTargeting would make Linux download a Windows targeting pack it can
+         never use; the Windows CI job already covers that framework. -->
+    <TargetFrameworks>net8.0</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('Windows'))">net8.0;net8.0-windows</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>JonsboLite</AssemblyName>
