@@ -20,11 +20,18 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Re-launch elevated if needed, so a Start Menu shortcut can just point here.
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
   [Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-  Write-Error "This script must be run from an elevated PowerShell (Run as Administrator)."
-  exit 1
+  Write-Host "Elevation required — accept the UAC prompt."
+  $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
+  if ($Uninstall) { $argv += '-Uninstall' }
+  if ($TaskName -ne 'JonsboLite') { $argv += @('-TaskName', $TaskName) }
+  if ($ExePath) { $argv += @('-ExePath', $ExePath) }
+  # -NoExit keeps the elevated window up so the result is readable.
+  $p = Start-Process powershell.exe -ArgumentList (@('-NoExit') + $argv) -Verb RunAs -PassThru
+  exit 0
 }
 
 if ($Uninstall) {

@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Windows installer for JonsboLite.
+
+  Deliberately plain: files, shortcuts, an Add/Remove Programs entry and a clean
+  uninstall. No custom actions — registering the elevated logon task is a separate,
+  opt-in step driven by a Start Menu shortcut, so a failure there can never leave a
+  half-installed product behind.
+
+  Build (from repo root, after publishing the Windows binary):
+    wix build packaging\windows\JonsboLite.wxs `
+      -d PublishDir=JonsboLite\bin\Release\net8.0-windows\win-x64\publish `
+      -d Version=1.0.0 `
+      -o JonsboLite-1.0.0-win-x64.msi
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+
+  <?ifndef Version ?>
+  <?define Version = "1.0.0" ?>
+  <?endif?>
+
+  <Package
+      Name="JonsboLite"
+      Manufacturer="JonsboLite contributors"
+      Version="$(Version)"
+      UpgradeCode="8f3d6a41-25b7-4c9e-9a1d-6b0f2c7e4d18"
+      Scope="perMachine"
+      Compressed="yes">
+
+    <SummaryInformation Description="Lightweight driver for JONSBO / Ocypus / Ruituo monitor panels" />
+
+    <!-- Same UpgradeCode across versions, so installing a newer MSI replaces the old one. -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of JonsboLite is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="$(PublishDir)\JonsboLite.exe" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/danieyal/jonsbolite" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+
+    <Launch
+        Condition="Installed OR VersionNT64"
+        Message="JonsboLite requires 64-bit Windows." />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="JonsboLite" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppMenuFolder" Name="JonsboLite" />
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="JonsboLite" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentGroupRef Id="AppShortcuts" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <!-- Harvest whatever publish produced rather than naming JonsboLite.exe alone.
+           Listing it explicitly once shipped an installer containing only the 152 KB
+           apphost stub, because a csproj change had quietly turned single-file off and
+           the real assemblies were sitting beside it, unpackaged. -->
+      <Files Include="$(PublishDir)\**">
+        <Exclude Files="$(PublishDir)\*.pdb" />
+        <Exclude Files="$(PublishDir)\jonsbolite.json" />
+      </Files>
+
+      <Component Id="AutostartScript" Guid="b2a74e10-93c5-4f6d-8e2b-5d17c8f0a3b9">
+        <File Id="InstallAutostartPs1" Source="$(AutostartScript)" KeyPath="yes" />
+      </Component>
+
+      <Component Id="Notices" Guid="d4f81c63-7a29-4b50-9c3e-2e6b1a9f8d70">
+        <File Id="ThirdPartyNotices" Source="$(NoticesFile)" KeyPath="yes" />
+      </Component>
+
+      <Component Id="LicenseFile" Guid="1a7c5e94-6b83-4d21-af58-3c9e0b2d7f46">
+        <File Id="LicenseTxt" Source="$(LicenseFile)" Name="LICENSE.txt" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="AppShortcuts">
+      <Component Id="StartMenuShortcuts" Directory="AppMenuFolder"
+                 Guid="3e8b2d17-5c64-4a9f-b7d0-8f1a6c4e2b95">
+
+        <Shortcut Id="RunShortcut"
+                  Name="JonsboLite"
+                  Description="Drive the panel with live sensor data"
+                  Target="[INSTALLFOLDER]JonsboLite.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+
+        <!-- Opt-in autostart. The script elevates itself, so this needs no custom action
+             and no elevated shortcut. -->
+        <Shortcut Id="AutostartShortcut"
+                  Name="Enable JonsboLite at startup"
+                  Description="Register the elevated logon task that gives sensors ring-0 access"
+                  Target="[System64Folder]WindowsPowerShell\v1.0\powershell.exe"
+                  Arguments="-NoProfile -ExecutionPolicy Bypass -File &quot;[INSTALLFOLDER]install-autostart.ps1&quot;"
+                  WorkingDirectory="INSTALLFOLDER" />
+
+        <RemoveFolder Id="RemoveAppMenuFolder" Directory="AppMenuFolder" On="uninstall" />
+
+        <!-- perMachine install, so the keypath belongs in HKLM. -->
+        <RegistryValue Root="HKLM" Key="Software\JonsboLite"
+                       Name="InstallFolder" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+</Wix>

@@ -16,6 +16,10 @@
 *.user
 *.suo
 
+# Release artifacts from packaging/
+/dist/
+*.wixpdb
+
 # Runtime config, written by the app and by the tray menu
 jonsbolite.json
 

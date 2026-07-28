@@ -1,5 +1,7 @@
 # JONSBO PC Monitor — reverse engineering + lightweight replacement
 
+[![CI](https://github.com/danieyal/jonsbolite/actions/workflows/ci.yml/badge.svg)](https://github.com/danieyal/jonsbolite/actions/workflows/ci.yml)
+
 The stock JONSBO PC Monitor app is a 293 MB Electron bundle plus a second .NET process,
 all to push ~20 numbers to a small USB panel. This workspace documents how it talks to
 that panel and replaces it with a single 3.7 MB executable.
@@ -10,6 +12,7 @@ that panel and replaces it with a single 3.7 MB executable.
 |---|---|---|
 | [`JonsboLite/`](JonsboLite/) | yes | the replacement — Windows tray app and Linux daemon |
 | [`JonsboLite.Core/`](JonsboLite.Core/) | yes | the protocol, portable `net8.0`, no OS dependency |
+| [`packaging/`](packaging/) | yes | MSI and zip for Windows, tarball and .deb for Linux |
 | [`reverse-engineering/`](reverse-engineering/) | yes | protocol spec + a dependency-free PowerShell prover |
 | `original-app/` | **no** | the stock app, untouched, kept locally for reference |
 
