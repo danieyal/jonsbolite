@@ -36,8 +36,11 @@ for RID in "${ARCHES[@]}"; do
     echo "==> publishing $RID"
     OUT="$REPO/JonsboLite/bin/Release/net8.0/$RID/publish"
     rm -rf "$OUT"
+    # -p:Version keeps the assembly metadata in step with the package name; without it
+    # every release would ship a binary still reporting the csproj's 1.0.0.
     dotnet publish "$REPO/JonsboLite/JonsboLite.csproj" \
         -f net8.0 -r "$RID" -c Release --nologo -v minimal \
+        -p:Version="$VERSION" \
         -p:SelfContained=true -p:PublishTrimmed=true
 
     [ -f "$OUT/JonsboLite" ] || { echo "expected $OUT/JonsboLite" >&2; exit 1; }

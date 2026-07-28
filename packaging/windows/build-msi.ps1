@@ -36,8 +36,11 @@ $publish = Join-Path $repo "JonsboLite\bin\$Configuration\net8.0-windows\win-x64
 $dist    = Join-Path $repo 'dist'
 
 Write-Host "==> publishing $Configuration win-x64"
+# -p:Version keeps the assembly metadata in step with the installer name; without it
+# every release would ship a binary still reporting the csproj's 1.0.0.
 & dotnet publish (Join-Path $repo 'JonsboLite\JonsboLite.csproj') `
-    -f net8.0-windows -c $Configuration --nologo -v minimal
+    -f net8.0-windows -c $Configuration --nologo -v minimal `
+    -p:Version=$Version
 if ($LASTEXITCODE -ne 0) { throw "publish failed" }
 
 if (-not (Test-Path (Join-Path $publish 'JonsboLite.exe'))) {

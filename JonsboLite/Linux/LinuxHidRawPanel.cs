@@ -115,6 +115,11 @@ public sealed class LinuxHidRawPanel : IPanelTransport
                 if (!line.StartsWith("HID_ID=", StringComparison.Ordinal)) continue;
                 string[] parts = line["HID_ID=".Length..].Split(':');
                 if (parts.Length != 3) break;
+                // Vendor and product are normally 8 hex digits, of which the low 4 matter.
+                // A shorter field would make the slices below throw, and that exception
+                // would escape this iterator all the way out of the send loop — one
+                // oddly-formatted device on the system would take the daemon down.
+                if (parts[1].Length < 4 || parts[2].Length < 4) break;
                 if (!ushort.TryParse(parts[1][^4..], System.Globalization.NumberStyles.HexNumber, null, out ushort vid)) break;
                 if (!ushort.TryParse(parts[2][^4..], System.Globalization.NumberStyles.HexNumber, null, out pid)) break;
                 matched = PanelModels.IsPanel(vid, pid);

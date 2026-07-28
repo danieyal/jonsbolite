@@ -66,10 +66,19 @@ public static class Frame
 
     private static byte Percent(double v) => (byte)Clamp(v, 0, 100);
 
-    /// <summary>Integer part + hundredths, e.g. 88.5 -> (88, 50).</summary>
+    /// <summary>
+    /// Integer part + hundredths, e.g. 88.5 -> (88, 50).
+    ///
+    /// The whole part is additionally capped at 255, because it has to fit one byte. The
+    /// caller's own maximum (999 for temperatures) is the protocol's limit, not the
+    /// field's, and the difference is reachable: in Fahrenheit mode a 130 °C reading
+    /// converts to 266, which without this cap wraps around to 10. The vendor app has the
+    /// same flaw. Pinning at 255 shows an obviously wrong number instead of a
+    /// plausible-looking one.
+    /// </summary>
     private static (byte, byte) Fixed2(double v, double max)
     {
-        v = Clamp(v, 0, max);
+        v = Clamp(v, 0, Math.Min(max, byte.MaxValue));
         double whole = Math.Floor(v);
         return ((byte)whole, (byte)Clamp(Math.Floor((v - whole) * 100), 0, 99));
     }
