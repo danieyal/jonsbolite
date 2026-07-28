@@ -52,6 +52,15 @@ offset 40..41  panel-specific display mode
 Wide values are split across bytes by `/100` and `%100` rather than bit-packed, so
 4550 MHz travels as `45, 50`.
 
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+The published executable bundles LibreHardwareMonitorLib and its dependencies, four of
+which are MPL-2.0. That is file-level copyleft and does not affect this project's MIT
+terms (MPL-2.0 §3.3), but the binary carries notice obligations — see
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), and ship it alongside any release.
+
 ## Status
 
 Confirmed end-to-end against physical hardware: every field renders at the expected

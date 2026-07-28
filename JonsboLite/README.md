@@ -124,6 +124,12 @@ Two bugs from the original are fixed rather than reproduced (see PROTOCOL.md):
 
 Also: writes are exactly 65 bytes instead of a 69-byte buffer that Windows truncates.
 
+## License
+
+MIT ([../LICENSE](../LICENSE)). The single-file exe bundles LibreHardwareMonitorLib and
+its transitive dependencies — four are MPL-2.0, one Apache-2.0 — so distribute
+[../THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md) with any binary you hand out.
+
 ## Not implemented
 
 - The 64-byte **input report** the panel declares. The official app never reads it either,
