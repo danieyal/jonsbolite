@@ -1,11 +1,11 @@
 using System.Diagnostics;
-using System.Runtime.Versioning;
+using System.Runtime.InteropServices;
+#if WINDOWS
 using System.Security.Principal;
-using LibreHardwareMonitor.Hardware;
+#endif
 
 namespace JonsboLite;
 
-[SupportedOSPlatform("windows")]
 public static class Program
 {
     private const string Usage = """
@@ -22,8 +22,8 @@ public static class Program
           --unit C|F           temperature unit                 (default from config, else C)
           --display-mode 0|1   panel-specific CPU field toggle  (default 0)
           --interval <ms>      frame cadence                    (default 200)
-          --no-tray            no notification-area icon, Ctrl+C to stop
-          --console            keep the console window visible in tray mode
+          --no-tray            no notification-area icon, Ctrl+C to stop  (Windows)
+          --console            keep the console window visible in tray mode (Windows)
           --quiet              no per-second status line
           --config <path>      use a specific config file
         """;
@@ -66,17 +66,24 @@ public static class Program
 
     private static int Run(Config config, bool quiet, bool test, bool tray, bool showConsole)
     {
-        WarnIfNotElevated();
+        WarnAboutPrivileges();
 
         var stop = new ManualResetEventSlim(false);
         Console.CancelKeyPress += (_, e) => { e.Cancel = true; stop.Set(); };
+        // systemd stops services with SIGTERM, so honour it as well as Ctrl+C.
+        using var sigterm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, ctx =>
+        {
+            ctx.Cancel = true;
+            stop.Set();
+        });
 
-        if (!tray)
+        if (!tray || !Platform.SupportsTray)
         {
             SendLoop(config, quiet, test, stop, null);
             return 0;
         }
 
+#if WINDOWS
         ApplicationConfiguration.Initialize();
         using var icon = new Tray(config);
         icon.ExitRequested += () => stop.Set();
@@ -93,10 +100,11 @@ public static class Program
         Application.Run();          // pumps the tray until ExitThread
         stop.Set();
         worker.Join(TimeSpan.FromSeconds(2));
+#endif
         return 0;
     }
 
-    private static void SendLoop(Config config, bool quiet, bool test, ManualResetEventSlim stop, Tray? tray)
+    private static void SendLoop(Config config, bool quiet, bool test, ManualResetEventSlim stop, IStatusSink? tray)
     {
         using IPanelTransport panel = Platform.CreateTransport();
         using ISensorSource? sensors = test ? null : OpenSensors(config);
@@ -143,7 +151,7 @@ public static class Program
             if (status.ElapsedMilliseconds >= 1000)
             {
                 status.Restart();
-                tray?.UpdateStatus(r, connected: true, model: Platform.ModelOf(panel));
+                tray?.UpdateStatus(r, connected: true, model: panel.Model);
                 if (!quiet)
                 {
                     // Overwrite in place on a real console; append lines when piped to a file.
@@ -183,7 +191,7 @@ public static class Program
 
     private static int ListSensors(Config config)
     {
-        WarnIfNotElevated();
+        WarnAboutPrivileges();
         using ISensorSource sensors = Platform.CreateSensorSource(config);
         sensors.Read(); // populate values
 
@@ -201,7 +209,7 @@ public static class Program
 
     private static int ShowBinding(Config config)
     {
-        WarnIfNotElevated();
+        WarnAboutPrivileges();
         using ISensorSource sensors = Platform.CreateSensorSource(config);
         Readings r = sensors.Read();
 
@@ -211,13 +219,18 @@ public static class Program
         return 0;
     }
 
-    private static void WarnIfNotElevated()
+    private static void WarnAboutPrivileges()
     {
+#if WINDOWS
         using var identity = WindowsIdentity.GetCurrent();
         if (new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator)) return;
         Console.Error.WriteLine("warning: not running as administrator — CPU package temp/power and");
         Console.Error.WriteLine("         motherboard fan tachometers will read 0. See install-autostart.ps1.");
         Console.Error.WriteLine();
+#else
+        // Linux needs no privilege: hwmon and procfs are world-readable, and hidraw access
+        // comes from a udev rule rather than from running as root.
+#endif
     }
 
     private static string? ArgValue(string[] args, string name)

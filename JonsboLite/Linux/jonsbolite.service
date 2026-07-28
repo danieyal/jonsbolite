@@ -1,0 +1,48 @@
+# systemd user service for JonsboLite.
+#
+# A user service, not a system one: with the uaccess udev rule the panel belongs to the
+# logged-in seat, so this needs no root. It also means the service starts and stops with
+# your session, which is usually what you want for a desktop panel.
+#
+# Install:
+#   mkdir -p ~/.config/systemd/user
+#   cp jonsbolite.service ~/.config/systemd/user/
+#   # edit ExecStart below to wherever the binary actually lives
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now jonsbolite
+#
+# Watch it:  journalctl --user -u jonsbolite -f
+#
+# To keep it running when you are not logged in:  sudo loginctl enable-linger $USER
+# (that also needs the GROUP form of the udev rule, since uaccess requires an active seat)
+
+[Unit]
+Description=JonsboLite — drives the JONSBO/Ocypus/Ruituo monitor panel
+Documentation=https://github.com/danieyal/jonsbolite
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/JonsboLite --quiet
+Restart=on-failure
+RestartSec=5
+
+# The panel is a nicety; never let it crowd out real work.
+Nice=10
+IOSchedulingClass=idle
+
+# It reads sysfs and writes one hidraw node. Nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=true
+MemoryDenyWriteExecute=false
+# The config file lives next to the binary; allow writing just that.
+ReadWritePaths=%h/.local/bin
+
+[Install]
+WantedBy=default.target

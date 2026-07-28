@@ -8,7 +8,8 @@ that panel and replaces it with a single 3.7 MB executable.
 
 | Folder | Tracked | |
 |---|---|---|
-| [`JonsboLite/`](JonsboLite/) | yes | the replacement — .NET 8, tray app, one exe |
+| [`JonsboLite/`](JonsboLite/) | yes | the replacement — Windows tray app and Linux daemon |
+| [`JonsboLite.Core/`](JonsboLite.Core/) | yes | the protocol, portable `net8.0`, no OS dependency |
 | [`reverse-engineering/`](reverse-engineering/) | yes | protocol spec + a dependency-free PowerShell prover |
 | `original-app/` | **no** | the stock app, untouched, kept locally for reference |
 
@@ -63,8 +64,14 @@ terms (MPL-2.0 §3.3), but the binary carries notice obligations — see
 
 ## Status
 
-Confirmed end-to-end against physical hardware: every field renders at the expected
-position with the official app not running, driven by both `send-frame.ps1` and JonsboLite.
+**Windows** — confirmed end-to-end against physical hardware: every field renders at the
+expected position with the official app not running, driven by both `send-frame.ps1` and
+JonsboLite. 3.7 MB against the stock 293 MB.
+
+**Linux** — implemented and building (134 KB, or 13.2 MB self-contained), **not yet run on
+hardware**. The panel needs no vendor driver there and no elevation at all: `hidraw` plus a
+udev rule for the device, hwmon and procfs for the sensors. See
+[`JonsboLite/README.md`](JonsboLite/README.md#linux-no-privilege-needed).
 
 The 64-byte **input report** the panel declares is still unexplored — the official app
 never reads it either, so it is unknown whether the firmware ever sends anything.
