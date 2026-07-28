@@ -4,6 +4,12 @@ A lightweight replacement for the JONSBO PC Monitor desktop app. Drives the same
 monitor panel (VID `0x5131`, PID `0x2007` / `0x2009` / `0x200A`) using the protocol
 documented in [`../reverse-engineering/PROTOCOL.md`](../reverse-engineering/PROTOCOL.md).
 
+> [!WARNING]
+> Vibe coded — largely AI-written, with human review. It writes to a USB HID device
+> several times a second and, on Windows, loads a kernel driver to read sensors. Verified
+> on one panel on one machine; the Linux path has never touched real hardware. Use at your
+> own risk — see the [disclaimer](../README.md) and [LICENSE](../LICENSE).
+
 |  | Original | JonsboLite |
 |---|---|---|
 | Install size | 293 MB | **3.7 MB** |
