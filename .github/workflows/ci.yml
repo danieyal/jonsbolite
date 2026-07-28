@@ -19,19 +19,23 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
 
+# Actions are pinned to commit hashes, not tags: a tag is mutable, so `@v7` is a promise
+# from whoever can move it. The trailing comment is the human-readable version.
 jobs:
   windows:
     name: Windows
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '8.0.x'
 
       - name: Cache NuGet
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
           key: nuget-windows-${{ hashFiles('**/*.csproj') }}
@@ -45,7 +49,9 @@ jobs:
       - name: Publish
         run: dotnet publish JonsboLite -f net8.0-windows -c Release
 
-      # No panel on a CI runner, so this checks the binary is intact and starts, nothing more.
+      # No panel on a CI runner, so this checks the binary is intact and starts, nothing
+      # more. The size floor catches a silently broken single-file publish, which has
+      # happened once already and produced an installer containing only the apphost stub.
       - name: Smoke test
         run: |
           $exe = 'JonsboLite\bin\Release\net8.0-windows\win-x64\publish\JonsboLite.exe'
@@ -55,13 +61,15 @@ jobs:
           & $exe --help
           if ($LASTEXITCODE -ne 0) { throw "--help exited $LASTEXITCODE" }
 
+      # v6+ requires accepting a paid maintenance-fee licence, so this stays on the last
+      # MIT-licensed line.
       - name: Install WiX
         run: dotnet tool install --global wix --version 5.0.2
 
       - name: Build MSI
         run: .\packaging\windows\build-msi.ps1 -Version 1.0.0
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-packages
           path: dist/*
@@ -71,14 +79,16 @@ jobs:
     name: Linux
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '8.0.x'
 
       - name: Cache NuGet
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.nuget/packages
           key: nuget-linux-${{ hashFiles('**/*.csproj') }}
@@ -129,8 +139,23 @@ jobs:
           sudo apt-get install -y lintian
           lintian "$deb" || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux-packages
           path: dist/*
           if-no-files-found: error
+
+  audit:
+    name: Workflow audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Static analysis of these workflows themselves: template injection, credential
+      # persistence, unpinned actions, over-broad permissions. pipx ships on the runner.
+      - name: zizmor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: pipx run zizmor --persona regular .github/workflows/

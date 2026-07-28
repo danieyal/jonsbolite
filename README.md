@@ -25,6 +25,21 @@ nothing in `JonsboLite/` depends on it.
 
 Nothing on this machine launches `original-app/` either — it is a copy, not the live install.
 
+## Contributing
+
+CI builds both target frameworks on Windows and the portable one on Linux, with warnings
+as errors, and runs the Linux sensor discovery against a real kernel.
+
+Workflows are audited by [zizmor](https://docs.zizmor.sh/) in CI and should stay clean:
+
+```bash
+uv tool install zizmor          # or pipx install zizmor
+GH_TOKEN=$(gh auth token) zizmor --persona pedantic .github/workflows/
+```
+
+Actions are pinned to commit hashes rather than tags — a tag can be moved by whoever
+controls it. The trailing comment on each `uses:` records the human-readable version.
+
 ## Start here
 
 - **[`reverse-engineering/PROTOCOL.md`](reverse-engineering/PROTOCOL.md)** — the full wire

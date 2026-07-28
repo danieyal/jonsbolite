@@ -9,13 +9,21 @@ on:
         description: 'Version to build, without the leading v (e.g. 1.2.0)'
         required: true
 
+# Read by default; only the job that publishes gets write, and only to contents.
 permissions:
-  contents: write   # needed to create the release
+  contents: read
+
+# One release at a time. Not cancel-in-progress: killing a run midway through
+# `gh release create` would leave a partially uploaded release behind.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
 
+# Actions are pinned to commit hashes; the trailing comment is the readable version.
 jobs:
   version:
     name: Resolve version
@@ -23,14 +31,17 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
     steps:
+      # Tag names and workflow inputs are attacker-controllable, so they arrive through
+      # the environment. Interpolating them into the script body would let a crafted tag
+      # execute as shell.
       - id: v
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -eu
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            version="${{ github.event.inputs.version }}"
-          else
-            version="${GITHUB_REF_NAME#v}"
-          fi
+          version="${INPUT_VERSION:-}"
+          [ -n "$version" ] || version="${REF_NAME#v}"
           # MSI ProductVersion rejects anything that is not major.minor.patch.
           case "$version" in
             [0-9]*.[0-9]*.[0-9]*) ;;
@@ -44,17 +55,22 @@ jobs:
     needs: version
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '8.0.x'
 
       - run: dotnet tool install --global wix --version 5.0.2
 
       - name: Build MSI and zip
-        run: .\packaging\windows\build-msi.ps1 -Version ${{ needs.version.outputs.version }}
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: .\packaging\windows\build-msi.ps1 -Version $env:VERSION
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows
           path: |
@@ -67,17 +83,23 @@ jobs:
     needs: version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: '8.0.x'
 
       - name: Build tarballs and debs
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
         run: |
+          set -eu
           chmod +x packaging/linux/build-packages.sh
-          ./packaging/linux/build-packages.sh ${{ needs.version.outputs.version }}
+          ./packaging/linux/build-packages.sh "$VERSION"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: linux
           path: |
@@ -89,10 +111,14 @@ jobs:
     name: Publish release
     needs: [version, windows, linux]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the release and upload assets
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
 
@@ -100,9 +126,10 @@ jobs:
         run: |
           set -eu
           mkdir -p dist
+          # download-artifact nests each artifact in its own directory.
           find artifacts -type f -exec mv -t dist {} +
           cd dist
-          sha256sum * > SHA256SUMS
+          sha256sum ./* > SHA256SUMS
           ls -la
 
       - name: Create release
@@ -111,33 +138,7 @@ jobs:
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           set -eu
-          notes=$(cat <<'EOF'
-          ## Install
-
-          **Windows** — run the `.msi`, or unzip the portable build anywhere.
-          Needs the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0).
-          For live CPU package temperature, power and fan speeds, use
-          *Enable JonsboLite at startup* from the Start Menu — sensors need ring-0 access.
-
-          **Linux** — `sudo dpkg -i jonsbolite_*.deb`, or unpack a tarball and run `./install.sh`.
-          Self-contained, so no runtime to install. Replug the panel afterwards so the udev
-          rule applies. JonsboLite needs no root on Linux.
-
-          Then check what it picked up:
-
-              jonsbolite --show-binding
-
-          If fan, pump or Vcore read 0, load your board's SuperIO driver:
-          `sudo modprobe nct6683 force=1`.
-
-          ## Note
-
-          The Linux build has had far less real-world exposure than the Windows one.
-          Sensor names in hwmon vary between boards; pin anything it gets wrong in
-          `jonsbolite.json` — see `--list-sensors`.
-          EOF
-          )
           gh release create "v$VERSION" dist/* \
             --title "JonsboLite v$VERSION" \
-            --notes "$notes" \
+            --notes-file .github/release-notes.md \
             --verify-tag
