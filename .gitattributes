@@ -1,0 +1,17 @@
+# Normalise line endings in the repo, check out native.
+* text=auto
+
+# PowerShell is checked out CRLF so scripts stay well-behaved under Windows PowerShell 5.1.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Never touch these.
+*.png binary
+*.ico binary
+*.exe binary
+*.dll binary
+*.asar binary
+*.pak binary
+*.bin binary
+*.ttf binary

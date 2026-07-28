@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>JonsboLite</AssemblyName>
+    <RootNamespace>JonsboLite</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Tray icon only. Kept as a console subsystem app (OutputType Exe) so the sensor
+         diagnostic switches still write to the terminal that launched them; the console
+         window is hidden at runtime when the tray is active. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.7-pre715" />
+  </ItemGroup>
+
+  <!-- LibreHardwareMonitorLib pulls in Mono.Posix.NETStandard for its Linux paths, which
+       drags ~1.5 MB of native helpers we can never execute on a Windows-only build.
+       Verified: the app runs identically without them. -->
+  <Target Name="DropMonoPosixNatives" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish
+        Remove="@(ResolvedFileToPublish)"
+        Condition="$([System.String]::Copy('%(Filename)').Contains('MonoPosixHelper'))" />
+    </ItemGroup>
+  </Target>
+
+</Project>
