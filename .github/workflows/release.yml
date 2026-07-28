@@ -57,8 +57,13 @@ jobs:
     needs: version
     runs-on: windows-latest
     steps:
+      # Always build the tag being released, never the branch the run was dispatched
+      # from. gh release create --verify-tag requires v$VERSION to already exist, so a
+      # manual run would otherwise build whatever master happens to be and publish it
+      # under an older tag. A missing tag now fails here, before anything is built.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: refs/tags/v${{ needs.version.outputs.version }}
           persist-credentials: false
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
@@ -85,8 +90,13 @@ jobs:
     needs: version
     runs-on: ubuntu-latest
     steps:
+      # Always build the tag being released, never the branch the run was dispatched
+      # from. gh release create --verify-tag requires v$VERSION to already exist, so a
+      # manual run would otherwise build whatever master happens to be and publish it
+      # under an older tag. A missing tag now fails here, before anything is built.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: refs/tags/v${{ needs.version.outputs.version }}
           persist-credentials: false
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
@@ -116,8 +126,13 @@ jobs:
     permissions:
       contents: write   # create the release and upload assets
     steps:
+      # Always build the tag being released, never the branch the run was dispatched
+      # from. gh release create --verify-tag requires v$VERSION to already exist, so a
+      # manual run would otherwise build whatever master happens to be and publish it
+      # under an older tag. A missing tag now fails here, before anything is built.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: refs/tags/v${{ needs.version.outputs.version }}
           persist-credentials: false
 
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1

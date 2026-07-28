@@ -168,7 +168,13 @@ public static class Program
         Console.WriteLine($"stopped after {frames} frames");
     }
 
-    private static ISensorSource? OpenSensors(Config config)
+    /// <summary>
+    /// Opens the sensor backend, or explains why it could not and exits. Every path that
+    /// needs sensors goes through here — the diagnostic commands most of all, since an
+    /// unelevated run is exactly when someone reaches for --show-binding, and a raw stack
+    /// trace is the least useful thing to hand them at that moment.
+    /// </summary>
+    private static ISensorSource OpenSensors(Config config)
     {
         try
         {
@@ -179,7 +185,7 @@ public static class Program
             Console.Error.WriteLine($"could not start sensor monitoring: {ex.Message}");
             Console.Error.WriteLine("try running elevated, or use --test to verify the panel on its own");
             Environment.Exit(1);
-            return null;
+            throw;   // unreachable; satisfies definite assignment
         }
     }
 
@@ -205,7 +211,7 @@ public static class Program
     private static int ListSensors(Config config)
     {
         WarnAboutPrivileges();
-        using ISensorSource sensors = Platform.CreateSensorSource(config);
+        using ISensorSource sensors = OpenSensors(config);
         SampleTwice(sensors);
 
         foreach (IGrouping<string, SensorReading> group in sensors.Enumerate().GroupBy(s => s.Hardware))
@@ -223,7 +229,7 @@ public static class Program
     private static int ShowBinding(Config config)
     {
         WarnAboutPrivileges();
-        using ISensorSource sensors = Platform.CreateSensorSource(config);
+        using ISensorSource sensors = OpenSensors(config);
         Readings r = SampleTwice(sensors);
 
         Console.WriteLine($"{"panel field",-12} {"value",10}   sensor");
