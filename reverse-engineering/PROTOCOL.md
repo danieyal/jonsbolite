@@ -138,9 +138,24 @@ pump_rpm    = p[23]*100 + p[24]
 mem_util_%  = p[33]
 ```
 
-Source values are clamped to 999 for temperatures and 9999 for everything else
-*before* the split, so anything ≥ 25600 RPM or ≥ 25600 MHz would wrap — not
-reachable in practice.
+### Encodable ranges
+
+Every field is a byte, so the wire format itself is the limit. An implementation must
+clamp to these; the vendor app does not, and wraps instead.
+
+| Field | Encodable range | Why |
+|---|---|---|
+| Temperatures (offsets 3, 13) | **0–255** | single byte for the whole part |
+| Fractions (offsets 4, 8, 12, 14, 18) | 0–99 | hundredths |
+| Percentages (6, 16, 33) | 0–100 | |
+| Clocks and RPM (9/10, 19/20, 21/22, 23/24) | 0–9999 | high byte is `value / 100`, so ≤ 99 |
+| Power (34+7+8, 35+17+18) | 0–9999 | high byte is `watts / 100` |
+
+The hi/lo pairs cannot overflow once the source is clamped to 9999, because `9999 / 100`
+is 99. Temperatures are the trap: the vendor app clamps them to **999** and then writes
+that into one byte, so 266 °F — a 130 °C CPU in Fahrenheit mode — is transmitted as 10.
+JonsboLite caps the whole part at 255 instead, so an out-of-range reading looks obviously
+wrong rather than plausibly cold.
 
 ## Connection lifecycle
 
