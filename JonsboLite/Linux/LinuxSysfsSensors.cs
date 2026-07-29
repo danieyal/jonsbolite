@@ -91,6 +91,15 @@ public sealed class LinuxSysfsSensors : ISensorSource
     }
 
     /// <summary>
+    /// "card0" yes, "card0-DP-1" no. Hand-rolled rather than a regex: this is the only
+    /// pattern match in the program, and Regex would be dead weight in a trimmed build.
+    /// </summary>
+    private static bool IsCardNode(string name) =>
+        name.StartsWith("card", StringComparison.Ordinal) &&
+        name.Length > 4 &&
+        name.AsSpan(4).IndexOfAnyExcept("0123456789".AsSpan()) < 0;
+
+    /// <summary>
     /// hwmon units are fixed by the kernel ABI, so the scale is knowable from the key.
     /// Verified against Documentation/hwmon/sysfs-interface.rst — these are stable ABI and
     /// deliberately not guessed, since a wrong scale here is silently wrong on every read.
@@ -112,7 +121,12 @@ public sealed class LinuxSysfsSensors : ISensorSource
     /// <summary>GPU utilisation. amdgpu exposes it directly; nouveau and nvidia do not.</summary>
     private void DiscoverDrm()
     {
-        foreach (string card in Dirs("/sys/class/drm").Where(d => Path.GetFileName(d).StartsWith("card", StringComparison.Ordinal)))
+        // Only cardN, never the connectors. /sys/class/drm holds both card0 and
+        // card0-DP-1, card0-HDMI-A-1 and so on, and every connector's device symlink
+        // resolves back to the same GPU — so matching on the "card" prefix alone finds
+        // gpu_busy_percent several times over and registers one duplicate source per
+        // display output.
+        foreach (string card in Dirs("/sys/class/drm").Where(d => IsCardNode(Path.GetFileName(d))))
         {
             string busy = Path.Combine(card, "device", "gpu_busy_percent");
             if (!File.Exists(busy)) continue;

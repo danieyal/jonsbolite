@@ -70,7 +70,11 @@ Write-Host "==> building $([IO.Path]::GetFileName($zip))"
 $staging = Join-Path ([IO.Path]::GetTempPath()) "jonsbolite-zip-$([guid]::NewGuid())"
 New-Item -ItemType Directory -Force $staging | Out-Null
 try {
-  Copy-Item (Join-Path $publish 'JonsboLite.exe') $staging
+  # Harvest the publish directory rather than naming the exe, for the same reason the
+  # WiX authoring does: a csproj change once turned single-file publish off silently, and
+  # naming one file produced a package containing just the apphost stub. Excluding the
+  # debug symbols is deliberate; excluding anything else is not.
+  Copy-Item (Join-Path $publish '*') $staging -Recurse -Exclude '*.pdb'
   Copy-Item (Join-Path $repo 'JonsboLite\install-autostart.ps1') $staging
   Copy-Item (Join-Path $repo 'THIRD-PARTY-NOTICES.md') $staging
   Copy-Item (Join-Path $repo 'LICENSE') (Join-Path $staging 'LICENSE.txt')
