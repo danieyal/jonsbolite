@@ -12,10 +12,6 @@ updates:
     target-branch: "master"
     cooldown:
       default-days: 7
-    # One PR for all of actions/*, rather than five separate ones every week.
-    groups:
-      github-actions:
-        patterns: ["*"]
     commit-message:
       prefix: "ci"
     labels: ["dependencies", "github-actions"]
