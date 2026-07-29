@@ -46,6 +46,9 @@ jobs:
       - name: Build (both target frameworks)
         run: dotnet build -c Release -warnaserror
 
+      - name: Test
+        run: dotnet test JonsboLite.Core.Tests -c Release --no-build
+
       - name: Publish
         run: dotnet publish JonsboLite -f net8.0-windows -c Release
 
@@ -100,6 +103,11 @@ jobs:
         run: |
           dotnet build JonsboLite.Core -c Release -warnaserror
           dotnet build JonsboLite -f net8.0 -c Release -warnaserror
+
+      # The protocol tests are platform-agnostic, so they run on both runners — cheap
+      # insurance that nothing in the core has quietly become Windows-shaped.
+      - name: Test
+        run: dotnet test JonsboLite.Core.Tests -c Release -warnaserror
 
       - name: Shell script lint
         run: |

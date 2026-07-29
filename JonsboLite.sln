@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JonsboLite.Core", "JonsboLi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JonsboLite", "JonsboLite\JonsboLite.csproj", "{5E4E23E7-9B0A-464E-812D-C0554FE5EA0F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JonsboLite.Core.Tests", "JonsboLite.Core.Tests\JonsboLite.Core.Tests.csproj", "{0490ACC7-3B36-484E-87F6-9F80190BC5B6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +26,9 @@ Global
 		{5E4E23E7-9B0A-464E-812D-C0554FE5EA0F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5E4E23E7-9B0A-464E-812D-C0554FE5EA0F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5E4E23E7-9B0A-464E-812D-C0554FE5EA0F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0490ACC7-3B36-484E-87F6-9F80190BC5B6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0490ACC7-3B36-484E-87F6-9F80190BC5B6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0490ACC7-3B36-484E-87F6-9F80190BC5B6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0490ACC7-3B36-484E-87F6-9F80190BC5B6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
