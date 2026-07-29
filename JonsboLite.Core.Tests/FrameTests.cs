@@ -44,9 +44,11 @@ public class FrameTests
     [Fact]
     public void Cpu_fields_land_on_their_documented_offsets()
     {
+        // Every fractional input is a binary-exact quarter, so the expectations below are
+        // not at the mercy of floating-point representation.
         byte[] p = Pack(new Readings
         {
-            CpuTemp = 88.50, CpuLoad = 42, CpuPower = 65, CpuClock = 4550, CpuVid = 1.25,
+            CpuTemp = 88.50, CpuLoad = 42, CpuPower = 65.25, CpuClock = 4550, CpuVid = 1.25,
         });
 
         Assert.Equal(88, p[3]);     // temp whole
@@ -54,6 +56,7 @@ public class FrameTests
         Assert.Equal(0, p[5]);      // unit: Celsius
         Assert.Equal(42, p[6]);     // load %
         Assert.Equal(65, p[7]);     // watts % 100
+        Assert.Equal(25, p[8]);     // watts hundredths
         Assert.Equal(0, p[34]);     // watts / 100
         Assert.Equal(45, p[9]);     // MHz / 100
         Assert.Equal(50, p[10]);    // MHz % 100
@@ -66,14 +69,16 @@ public class FrameTests
     {
         byte[] p = Pack(new Readings
         {
-            GpuTemp = 77, GpuLoad = 55, GpuPower = 120, GpuClock = 2500,
+            GpuTemp = 77.50, GpuLoad = 55, GpuPower = 120.75, GpuClock = 2500,
             FanRpm = 1200, PumpRpm = 850, MemLoad = 61,
         });
 
-        Assert.Equal(77, p[13]);
+        Assert.Equal(77, p[13]);    // temp whole
+        Assert.Equal(50, p[14]);    // temp hundredths
         Assert.Equal(0, p[15]);     // unit
         Assert.Equal(55, p[16]);
         Assert.Equal(20, p[17]);    // 120 W -> 1 * 100 + 20
+        Assert.Equal(75, p[18]);    // watts hundredths
         Assert.Equal(1, p[35]);
         Assert.Equal(25, p[19]);    // 2500 MHz
         Assert.Equal(0, p[20]);
@@ -82,6 +87,46 @@ public class FrameTests
         Assert.Equal(8, p[23]);     // 850 rpm
         Assert.Equal(50, p[24]);
         Assert.Equal(61, p[33]);
+    }
+
+    /// <summary>
+    /// All five fraction bytes at once. The offsets above are covered individually, but
+    /// only with values whose fractions happen to be set — this pins the whole set
+    /// together so a shifted or dropped fraction byte cannot hide behind a zero.
+    /// </summary>
+    [Fact]
+    public void Every_fraction_byte_carries_its_hundredths()
+    {
+        byte[] p = Pack(new Readings
+        {
+            CpuTemp = 51.75, CpuPower = 38.25, CpuVid = 1.50,
+            GpuTemp = 41.25, GpuPower = 26.75,
+        });
+
+        Assert.Equal(75, p[4]);     // CPU temp
+        Assert.Equal(25, p[8]);     // CPU power
+        Assert.Equal(50, p[12]);    // CPU VID
+        Assert.Equal(25, p[14]);    // GPU temp
+        Assert.Equal(75, p[18]);    // GPU power
+    }
+
+    /// <summary>
+    /// Hundredths are truncated, not rounded — 0.999 is 99, never 100, which would
+    /// overflow the field. The vendor app floors too, so this also keeps the two in step.
+    /// </summary>
+    [Theory]
+    [InlineData(50.999, 50, 99)]      // ceiling case — the 0..99 clamp also covers this
+    [InlineData(50.001, 50, 0)]
+    [InlineData(50.9999999, 50, 99)]
+    // The discriminating cases: hundredths of .6 and .5 round *up* but truncate *down*,
+    // and unlike .999 they are nowhere near the clamp, so only flooring produces these.
+    [InlineData(50.006, 50, 0)]
+    [InlineData(50.605, 50, 60)]
+    public void Fractions_truncate_rather_than_round(double temp, byte whole, byte hundredths)
+    {
+        byte[] p = Pack(new Readings { CpuTemp = temp });
+        Assert.Equal(whole, p[3]);
+        Assert.Equal(hundredths, p[4]);
     }
 
     [Fact]
