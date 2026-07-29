@@ -27,9 +27,9 @@ updates:
     commit-message:
       prefix: "deps"
     labels: ["dependencies"]
-    ignore:
-      # LibreHardwareMonitorLib's 0.9.7 line is a rolling prerelease stream, not a
-      # release candidate. It was deliberately dropped for stable 0.9.6 after checking
-      # that 0.9.6 detects the same sensors, so do not let it drift back.
-      - dependency-name: "LibreHardwareMonitorLib"
-        versions: ["0.9.7-pre*"]
+    # No ignore rule for LibreHardwareMonitorLib's 0.9.7 prerelease stream, even though
+    # it was deliberately dropped for stable 0.9.6: Dependabot only offers a prerelease
+    # when the current version is itself a prerelease, and 0.9.6 is not. An earlier
+    # attempt to pin it out used versions: ["0.9.7-pre*"], which is a glob rather than a
+    # version requirement — Dependabot rejected the whole nuget config with
+    # illformed_requirement, so no NuGet updates ran at all.
