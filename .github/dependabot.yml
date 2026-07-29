@@ -1,0 +1,35 @@
+# Actions are pinned to commit hashes, which is good for supply-chain safety and bad for
+# staying current: a pinned hash never moves, so without this the pins quietly rot.
+# Dependabot understands hash pins and updates both the hash and the trailing version
+# comment together.
+version: 2
+
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: weekly
+    target-branch: "master"
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "ci"
+    labels: ["dependencies", "github-actions"]
+
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: weekly
+    target-branch: "master"
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    labels: ["dependencies"]
+    ignore:
+      # LibreHardwareMonitorLib's 0.9.7 line is a rolling prerelease stream, not a
+      # release candidate. It was deliberately dropped for stable 0.9.6 after checking
+      # that 0.9.6 detects the same sensors, so do not let it drift back.
+      - dependency-name: "LibreHardwareMonitorLib"
+        versions: ["0.9.7-pre*"]
